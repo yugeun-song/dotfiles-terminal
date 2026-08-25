@@ -1,0 +1,4 @@
+# Nothing built lives here, but editors and shells leave things behind.
+*.zwc
+*.swp
+.DS_Store
