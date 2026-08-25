@@ -1,0 +1,28 @@
+#
+# ~/.bashrc
+#
+
+# If not running interactively, don't do anything
+[[ $- != *i* ]] && return
+
+# History
+#
+# Bash ships with 500 entries and no histappend, which means the last shell to
+# exit overwrites the file with only its own session and every other open
+# terminal's history goes with it. zsh is the login shell here and holds the
+# real history; this exists so the bash sessions that do happen -- a rescue
+# shell, a container, a script run interactively -- do not discard theirs.
+HISTSIZE=500000
+HISTFILESIZE=500000
+HISTCONTROL=ignoreboth
+HISTTIMEFORMAT='%F %T '
+shopt -s histappend
+shopt -s cmdhist
+
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
+PS1='[\u@\h \W]\$ '
+[ -r $HOME/.config/byobu/prompt ] && . $HOME/.config/byobu/prompt   #byobu-prompt#
+. "$HOME/.cargo/env"
+
+case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac

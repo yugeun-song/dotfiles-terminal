@@ -85,6 +85,28 @@ plugins=(
 
 source $ZSH/oh-my-zsh.sh
 
+# History
+#
+# Oh My Zsh raises SAVEHIST to 10000 and stops there. At the ~35 commands a
+# day this account actually runs, that ceiling was reached in 284 days, and
+# once reached every new command silently evicts the oldest one. These are
+# set after oh-my-zsh.sh is sourced so that nothing can lower them again.
+#
+# 500000 entries is about 24MB on disk and adds ~290ms to shell startup. That
+# cost is not felt: the powerlevel10k instant prompt at the top of this file
+# draws the prompt before the history file is read. Searching the full set
+# with fzf measures ~80ms. At the rate above the ceiling is decades away,
+# which is the entire point of picking a number this large.
+HISTSIZE=500000
+SAVEHIST=500000
+HISTFILE="$HOME/.zsh_history"
+
+# Commands differing only in whitespace are the same command, and Ctrl-R
+# should walk distinct commands rather than the same one repeatedly. The rest
+# of the history options come from Oh My Zsh and are left as they are.
+setopt HIST_REDUCE_BLANKS
+setopt HIST_FIND_NO_DUPS
+
 # User configuration
 
 # export MANPATH="/usr/local/man:$MANPATH"
@@ -166,6 +188,22 @@ bindkey -M vicmd '^X^E' edit-command-line
 [ -f /usr/share/fzf/key-bindings.zsh ] && source /usr/share/fzf/key-bindings.zsh
 [ -f /usr/share/fzf/completion.zsh ] && source /usr/share/fzf/completion.zsh
 
+# Ctrl-R opens this over the history above; /usr/share/fzf/key-bindings.zsh
+# sourced just below is what binds it, in viins and vicmd both.
+#
+# Rows are the warm cream Spaceduck uses for text, not a grey, because the
+# list fills most of the screen and a grey list makes the whole thing read as
+# colourless. The selected row goes to white against the selection background.
+#
+# Matches are orange, and go to full yellow on the row under the cursor, so
+# the brightest thing on screen is always the match you are about to take.
+# The prompt and pointer are the same yellow: everything the cursor controls
+# is one colour, and everything reporting state is not.
+#
+# Palette values are taken from a published theme rather than invented:
+#   Spaceduck  https://github.com/pineapplegiant/spaceduck
+# The bar and Qt applications use the same background and foreground from it,
+# with accents from Tokyo Night (https://github.com/folke/tokyonight.nvim).
 export FZF_DEFAULT_OPTS='
 --layout=reverse
 --height=50%
@@ -173,8 +211,9 @@ export FZF_DEFAULT_OPTS='
 --margin=1,5
 --prompt="🔍 "
 --pointer="▶"
---color=bg+:#313244,fg:#CDD6F4,fg+:#F5E0DC,hl:#CBA6F7,hl+:#F38BA8
---color=info:#FAB387,prompt:#A6E3A1,pointer:#F5C2E7,marker:#F5C2E7,spinner:#FAB387
+--color=bg:#0F111B,bg+:#1B1C36,fg:#ECF0C1,fg+:#FFFFFF
+--color=hl:#E39400,hl+:#F2CE00,info:#B3A1E6,border:#686F9A,header:#5CCC96
+--color=prompt:#F2CE00,pointer:#F2CE00,marker:#E39400,spinner:#F2CE00
 '
 
 alias peaclock-spotify='peaclock --config ~/.peaclock/config/color_spotify'

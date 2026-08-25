@@ -38,6 +38,10 @@ link() {
 link "$SRC/zsh/zshrc"              "$HOME/.zshrc"
 link "$SRC/zsh/zshenv"             "$HOME/.zshenv"
 link "$SRC/zsh/p10k.zsh"           "$HOME/.p10k.zsh"
+link "$SRC/zsh/zprofile"           "$HOME/.zprofile"
+# bash is not the login shell, but a rescue shell or a container gets one, and
+# without this it keeps 500 lines of history and overwrites them on exit.
+link "$SRC/bash/bashrc"            "$HOME/.bashrc"
 # zshrc sources the drop-in from a literal ~/.config/zsh, so this one link
 # cannot follow XDG_CONFIG_HOME.
 link "$SRC/zsh/config"             "$HOME/.config/zsh"
