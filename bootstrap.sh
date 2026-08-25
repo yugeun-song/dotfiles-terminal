@@ -69,6 +69,44 @@ clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
 
 echo
 
+# git/gitconfig carries no name or email, and nothing here fills them in
+# either: an identity set by a script is an identity nobody checked, and the
+# first wrong commit under it is silent. Set them by hand once:
+#
+#   git config --global user.name  'Your Name'
+#   git config --global user.email 'you@example.com'
+if [[ -z "$(git config --global user.name)" || -z "$(git config --global user.email)" ]]; then
+    echo "git has no identity yet; set it before committing:" >&2
+    echo "  git config --global user.name  'Your Name'" >&2
+    echo "  git config --global user.email 'you@example.com'" >&2
+fi
+
+echo
+
+# The editor configuration is a repository of its own rather than a directory
+# here, so this is the only place that records where it comes from. The owner
+# is taken from the authenticated account for the same reason as above.
+NVIM_SRC="${NVIM_CONFIG_DIR:-$HOME/workspace/nvim-config}"
+NVIM_LINK="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
+if [[ -d "$NVIM_SRC/.git" ]]; then
+    echo "updating nvim configuration"
+    git -C "$NVIM_SRC" pull --ff-only --quiet \
+        || echo "  could not fast-forward the nvim configuration; leaving it" >&2
+elif [[ -e "$NVIM_SRC" || -e "$NVIM_LINK" ]]; then
+    echo "an nvim configuration is already in place; leaving it alone"
+elif [[ -n "${NVIM_CONFIG_URL:-}" ]] || { command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; }; then
+    url="${NVIM_CONFIG_URL:-https://github.com/$(gh api user --jq '.login')/nvim-config.git}"
+    echo "cloning nvim configuration from $url"
+    mkdir -p "$(dirname "$NVIM_SRC")"
+    git clone --quiet "$url" "$NVIM_SRC" || { echo "  clone failed" >&2; fail=1; }
+else
+    echo "no nvim configuration and no way to find one; set NVIM_CONFIG_URL" >&2
+fi
+if [[ -d "$NVIM_SRC" && ! -e "$NVIM_LINK" ]]; then
+    mkdir -p "$(dirname "$NVIM_LINK")"
+    ln -s "$NVIM_SRC" "$NVIM_LINK" && echo "linked $NVIM_LINK -> $NVIM_SRC"
+fi
+
 # A fresh Arch install gives the account bash. Everything in zshrc, including
 # the history size that is the whole reason the file is worth keeping, only
 # applies once zsh is the login shell.

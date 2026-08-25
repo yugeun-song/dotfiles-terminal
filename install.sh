@@ -48,5 +48,17 @@ link "$SRC/zsh/config"             "$HOME/.config/zsh"
 link "$SRC/kitty"                  "$CONFIG/kitty"
 link "$SRC/tmux/tmux.conf"         "$CONFIG/tmux/tmux.conf"
 
+# git/gitconfig is included rather than linked over ~/.gitconfig. Linking would
+# replace the file that holds user.name and user.email, and an identity is not
+# something to lose to an installer; including leaves it where it is and layers
+# the shared settings underneath. Later entries win in git config, so anything
+# set directly in ~/.gitconfig still overrides what is included here.
+if git config --global --get-all include.path 2>/dev/null | grep -qxF "$SRC/git/gitconfig"; then
+    echo "already including $SRC/git/gitconfig"
+else
+    git config --global --add include.path "$SRC/git/gitconfig"
+    echo "included $SRC/git/gitconfig from ~/.gitconfig"
+fi
+
 echo
 echo "done. start a new shell to pick up the changes."
