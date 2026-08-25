@@ -11,7 +11,6 @@ files work under any account name.
 zsh/        zshrc, zshenv, powerlevel10k prompt, drop-ins under config/
 kitty/      kitty.conf with the spaceduck palette and two kittens
 tmux/       tmux.conf
-starship/   starship.toml, an alternative prompt to powerlevel10k
 ```
 
 ## Install
@@ -28,6 +27,11 @@ with a timestamped suffix rather than overwriting it.
 The kitty configuration expects two fonts: CaskaydiaCove Nerd Font Mono for
 text and Pretendard for Hangul, wired through `symbol_map` so mixed lines stay
 aligned. Without them kitty falls back and the alignment drifts.
+
+The prompt is powerlevel10k, and there is deliberately only one. starship
+would do the same job and works under zsh perfectly well, but running both
+means one of them is dead configuration, and the Caps Lock segment below is
+written against p10k's segment API.
 
 `zsh/config/caps-lock.zsh` adds a Caps Lock segment to the prompt by watching
 `/sys/class/leds/*::capslock/brightness`. It costs nothing when Caps Lock is

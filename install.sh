@@ -29,7 +29,6 @@ link "$SRC/zsh/p10k.zsh"           "$HOME/.p10k.zsh"
 link "$SRC/zsh/config"             "$CONFIG/zsh"
 link "$SRC/kitty"                  "$CONFIG/kitty"
 link "$SRC/tmux/tmux.conf"         "$CONFIG/tmux/tmux.conf"
-link "$SRC/starship/starship.toml" "$CONFIG/starship.toml"
 
 echo
 echo "done. start a new shell to pick up the changes."
