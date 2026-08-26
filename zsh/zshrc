@@ -212,8 +212,8 @@ export FZF_DEFAULT_OPTS='
 --prompt="🔍 "
 --pointer="▶"
 --color=bg:#0F111B,bg+:#1B1C36,fg:#ECF0C1,fg+:#FFFFFF
---color=hl:#00A3CC,hl+:#00A3CC,info:#F2CE00,border:#686F9A,header:#5CCC96
---color=prompt:#F2CE00,pointer:#00A3CC,marker:#E39400,spinner:#F2CE00
+--color=hl:#5CCC96,hl+:#5CCC96,info:#F2CE00,border:#686F9A,header:#B3A1E6
+--color=prompt:#F2CE00,pointer:#5CCC96,marker:#E39400,spinner:#F2CE00
 '
 
 alias peaclock-spotify='peaclock --config ~/.peaclock/config/color_spotify'
