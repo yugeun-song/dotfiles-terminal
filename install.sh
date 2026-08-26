@@ -35,6 +35,60 @@ link() {
     echo "linked $to"
 }
 
+# Copy, every run, over whatever is there.
+#
+# For what this repository authors and nothing else writes: the Hyprland
+# configuration, the scripts, the quickshell tree, the two commands in bin/.
+# These used to be symlinked, because a link makes an edit live without running
+# anything. What a link also does is make the installed path resolve back into
+# the working tree, so anything that finds a sibling by walking up from its own
+# location finds it in the repository rather than beside itself.
+# hypr/scripts/auto_monitors.sh read ../monitors.preset that way and the preset
+# was never installed at all; nothing reported it, the panel would simply have
+# come up at scale 1.
+#
+# Unlike seed() this overwrites. The repository is the source of truth here, so
+# a difference at the destination is something to lose rather than to keep. The
+# copy goes in place rather than being swapped in, because quickshell watches
+# these files and reloads on a write: a directory replaced underneath it is a
+# crash instead of a reload.
+mirror() {
+    local from="$1" to="$2" rel
+    if [[ ! -e "$from" ]]; then
+        echo "missing source: $from" >&2
+        exit 1
+    fi
+    # A link left by an older version of this script. Removing it is the whole
+    # conversion; what replaces it is the same content as a real file.
+    [[ -L "$to" ]] && rm -f "$to"
+    mkdir -p "$(dirname "$to")"
+    if [[ -d "$from" ]]; then
+        [[ -e "$to" && ! -d "$to" ]] && rm -f "$to"
+        mkdir -p "$to"
+        cp -a -- "$from/." "$to/"
+        # A file the repository no longer has is one a stale binding can still
+        # reach, so it goes. Only inside this directory: local.lua and
+        # local.monitors live a level up and are not ours to delete.
+        while IFS= read -r -d '' rel; do
+            rel="${rel#./}"
+            if [[ ! -e "$from/$rel" ]]; then
+                rm -rf -- "${to:?}/$rel"
+                echo "removed stale $to/$rel"
+            fi
+        done < <(cd -- "$to" && find . -mindepth 1 -print0)
+    else
+        # Written beside the target and moved onto it, so there is never a
+        # moment when the path does not exist. Hyprland watches its config and
+        # reads it the instant it changes: an rm followed by a cp gave it a
+        # window in which the file was gone, and it put "cannot open
+        # hyprland.lua: No such file or directory" on the screen.
+        local tmp="$to.new-$$"
+        cp -a -- "$from" "$tmp"
+        mv -T -- "$tmp" "$to"
+    fi
+    echo "installed $to"
+}
+
 # Copy once, then leave it alone. Some programs own their configuration file
 # and rewrite it themselves; a link to the repository either gets replaced by
 # their atomic save or, worse, gets written through. Seeding says what is true:
@@ -64,22 +118,22 @@ seed() {
     echo "seeded $to"
 }
 
-seed "$SRC/zsh/zshrc"              "$HOME/.zshrc"
-seed "$SRC/zsh/zshenv"             "$HOME/.zshenv"
+mirror "$SRC/zsh/zshrc"              "$HOME/.zshrc"
+mirror "$SRC/zsh/zshenv"             "$HOME/.zshenv"
 # Seeded rather than linked. `p10k configure` rewrites this file with a plain
 # shell redirect, which follows a symlink instead of replacing it, so running
 # the wizard would edit the repository in place without saying so. A copy keeps
 # the wizard's output where it belongs; copy it back here to keep a change.
 seed "$SRC/zsh/p10k.zsh"           "$HOME/.p10k.zsh"
-seed "$SRC/zsh/zprofile"           "$HOME/.zprofile"
+mirror "$SRC/zsh/zprofile"           "$HOME/.zprofile"
 # bash is not the login shell, but a rescue shell or a container gets one, and
 # without this it keeps 500 lines of history and overwrites them on exit.
-seed "$SRC/bash/bashrc"            "$HOME/.bashrc"
+mirror "$SRC/bash/bashrc"            "$HOME/.bashrc"
 # zshrc sources the drop-in from a literal ~/.config/zsh, so this one link
 # cannot follow XDG_CONFIG_HOME.
-seed "$SRC/zsh/config"             "$HOME/.config/zsh"
-seed "$SRC/kitty"                  "$CONFIG/kitty"
-seed "$SRC/tmux/tmux.conf"         "$CONFIG/tmux/tmux.conf"
+mirror "$SRC/zsh/config"             "$HOME/.config/zsh"
+mirror "$SRC/kitty"                  "$CONFIG/kitty"
+mirror "$SRC/tmux/tmux.conf"         "$CONFIG/tmux/tmux.conf"
 
 # git/gitconfig is included rather than linked over ~/.gitconfig. Linking would
 # replace the file that holds user.name and user.email, and an identity is not
