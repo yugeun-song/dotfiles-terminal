@@ -129,6 +129,7 @@ mirror "$SRC/zsh/zprofile"           "$HOME/.zprofile"
 # bash is not the login shell, but a rescue shell or a container gets one, and
 # without this it keeps 500 lines of history and overwrites them on exit.
 mirror "$SRC/bash/bashrc"            "$HOME/.bashrc"
+mirror "$SRC/npm/npmrc"              "$HOME/.npmrc"
 # zshrc sources the drop-in from a literal ~/.config/zsh, so this one link
 # cannot follow XDG_CONFIG_HOME.
 mirror "$SRC/zsh/config"             "$HOME/.config/zsh"
