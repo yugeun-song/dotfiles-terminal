@@ -86,7 +86,11 @@ echo
 # The editor configuration is a repository of its own rather than a directory
 # here, so this is the only place that records where it comes from. The owner
 # is taken from the authenticated account for the same reason as above.
-NVIM_SRC="${NVIM_CONFIG_DIR:-$HOME/workspace/nvim-config}"
+# Beside the other configuration repositories rather than under ~/workspace,
+# which is for source projects. This one is a configuration collection like the
+# two dotfiles trees, and it is the one thing here that stays a symlink:
+# ~/.config/nvim IS the repository, and editing it is the point.
+NVIM_SRC="${NVIM_CONFIG_DIR:-$HOME/nvim-config}"
 NVIM_LINK="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
 if [[ -d "$NVIM_SRC/.git" ]]; then
     echo "updating nvim configuration"
