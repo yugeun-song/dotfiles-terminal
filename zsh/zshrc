@@ -212,8 +212,8 @@ export FZF_DEFAULT_OPTS='
 --prompt="🔍 "
 --pointer="▶"
 --color=bg:#0F111B,bg+:#1B1C36,fg:#ECF0C1,fg+:#FFFFFF
---color=hl:#E39400,hl+:#F2CE00,info:#B3A1E6,border:#686F9A,header:#5CCC96
---color=prompt:#F2CE00,pointer:#F2CE00,marker:#E39400,spinner:#F2CE00
+--color=hl:#00A3CC,hl+:#00A3CC,info:#F2CE00,border:#686F9A,header:#5CCC96
+--color=prompt:#F2CE00,pointer:#00A3CC,marker:#E39400,spinner:#F2CE00
 '
 
 alias peaclock-spotify='peaclock --config ~/.peaclock/config/color_spotify'
@@ -225,6 +225,11 @@ alias unimatrix-safe='unimatrix -g black -c green -s 90 -a -n'
 
 alias el='eza --icons -al'
 export PATH="$HOME/.local/bin:$PATH"
+
+# `cargo install` puts binaries in ~/.cargo/bin, and Arch's rustup package does
+# not add that to PATH -- it only symlinks the toolchain shims into /usr/bin.
+# Guarded because a machine with no Rust should not carry a phantom entry.
+[[ -d "$HOME/.cargo/bin" ]] && export PATH="$HOME/.cargo/bin:$PATH"
 
 alias glow='glow -w $(tput cols)'
 
