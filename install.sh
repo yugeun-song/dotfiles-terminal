@@ -35,18 +35,51 @@ link() {
     echo "linked $to"
 }
 
-link "$SRC/zsh/zshrc"              "$HOME/.zshrc"
-link "$SRC/zsh/zshenv"             "$HOME/.zshenv"
-link "$SRC/zsh/p10k.zsh"           "$HOME/.p10k.zsh"
-link "$SRC/zsh/zprofile"           "$HOME/.zprofile"
+# Copy once, then leave it alone. Some programs own their configuration file
+# and rewrite it themselves; a link to the repository either gets replaced by
+# their atomic save or, worse, gets written through. Seeding says what is true:
+# this is where the settings start, and the program owns them from then on.
+seed() {
+    local from="$1" to="$2"
+    if [[ ! -e "$from" ]]; then
+        echo "missing source: $from" >&2
+        exit 1
+    fi
+    if [[ -L "$to" ]]; then
+        rm -f "$to"; mkdir -p "$(dirname "$to")"; cp -a "$from" "$to"
+        echo "unlinked and seeded $to"
+        return 0
+    fi
+    if [[ -e "$to" ]]; then
+        if diff -rq "$from" "$to" >/dev/null 2>&1; then
+            echo "already seeded $to"
+        else
+            echo "left $to alone: it exists and differs from $from"
+            echo "  copy it back into $from to keep the change"
+        fi
+        return 0
+    fi
+    mkdir -p "$(dirname "$to")"
+    cp -a "$from" "$to"
+    echo "seeded $to"
+}
+
+seed "$SRC/zsh/zshrc"              "$HOME/.zshrc"
+seed "$SRC/zsh/zshenv"             "$HOME/.zshenv"
+# Seeded rather than linked. `p10k configure` rewrites this file with a plain
+# shell redirect, which follows a symlink instead of replacing it, so running
+# the wizard would edit the repository in place without saying so. A copy keeps
+# the wizard's output where it belongs; copy it back here to keep a change.
+seed "$SRC/zsh/p10k.zsh"           "$HOME/.p10k.zsh"
+seed "$SRC/zsh/zprofile"           "$HOME/.zprofile"
 # bash is not the login shell, but a rescue shell or a container gets one, and
 # without this it keeps 500 lines of history and overwrites them on exit.
-link "$SRC/bash/bashrc"            "$HOME/.bashrc"
+seed "$SRC/bash/bashrc"            "$HOME/.bashrc"
 # zshrc sources the drop-in from a literal ~/.config/zsh, so this one link
 # cannot follow XDG_CONFIG_HOME.
-link "$SRC/zsh/config"             "$HOME/.config/zsh"
-link "$SRC/kitty"                  "$CONFIG/kitty"
-link "$SRC/tmux/tmux.conf"         "$CONFIG/tmux/tmux.conf"
+seed "$SRC/zsh/config"             "$HOME/.config/zsh"
+seed "$SRC/kitty"                  "$CONFIG/kitty"
+seed "$SRC/tmux/tmux.conf"         "$CONFIG/tmux/tmux.conf"
 
 # git/gitconfig is included rather than linked over ~/.gitconfig. Linking would
 # replace the file that holds user.name and user.email, and an identity is not

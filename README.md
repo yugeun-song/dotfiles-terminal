@@ -16,6 +16,34 @@ tmux/       tmux.conf
 bootstrap.sh  what has to be cloned rather than linked
 ```
 
+## Links and copies
+
+Two ways in, and which one a file gets is not a style choice.
+
+A **link** is for what is written here and reloaded in place: the Hyprland
+configuration, the quickshell tree, the scripts. `hyprctl reload` and a bar
+restart read those straight off disk, so editing through a copy would mean
+running the installer between every change. Nothing else writes to them, so
+the link cannot be replaced behind anyone's back.
+
+A **copy** is for everything a program owns. fcitx5, KDE and GTK save by
+writing a temp file beside the target and rename()-ing it over, and rename()
+replaces a symlink rather than following it: the first change made in one of
+their settings windows turns the link into a real file, and this repository
+quietly stops being what the machine reads. `p10k configure` is worse, writing
+through the link and editing the repository without saying so.
+
+So those are seeded: copied once, and left alone afterwards. The installer
+says what it did, and refuses to overwrite a seeded file that has diverged.
+
+    seeded ~/.config/fcitx5/config
+    left ~/.config/kdeglobals alone: it exists and differs
+      copy it back into <repo> to keep the change
+
+**After editing a seeded file here, run `./install.sh` again** — a copy does
+not update itself. To keep a change made through a program's own interface,
+copy the file back into this repository.
+
 ## Install
 
 ```sh
