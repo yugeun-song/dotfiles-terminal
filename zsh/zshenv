@@ -1,2 +1,13 @@
+# Where `npm install -g` and `yarn global` put things.
+#
+# Without it they write into /usr/lib/node_modules, which pacman owns, and the
+# Arch wiki's Node.js page states the consequence plainly: "Running foreign
+# package managers (in this case npm) as root will cause conflicts with pacman."
+# Nothing in the packaging prevents it, unlike pip, where the system Python is
+# marked externally managed and pip refuses by name.
+#
+# The variable rather than a prefix in ~/.npmrc, which is also carried: the wiki
+# notes the npmrc form is specific to npm, while this one is read by yarn too.
+export npm_config_prefix="$HOME/.local"
 
 . "$HOME/.cargo/env"
