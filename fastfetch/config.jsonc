@@ -1,23 +1,57 @@
 // The Arch logo in Arch's own blue, and nothing else changed.
 //
-// fastfetch draws the logo out of the sixteen-colour palette by default, so on
-// this system the arch mark came out in the spaceduck purple sitting in that
-// slot. The obvious fix is the wrong one: moving a colour in the palette to
-// suit one logo would change every program that asks for that slot, including
-// the text console, whose table has to stay in step with kitty's for the
-// tuigreet preview to mean anything.
+// fastfetch draws the logo out of the sixteen-colour palette by default, so the
+// arch mark came out in whichever spaceduck colour occupies that slot. The
+// obvious fix is the wrong one: moving a colour in the palette to suit one logo
+// would change every program that asks for that slot, including the text
+// console, whose table has to stay in step with kitty's for the tuigreet preview
+// to mean anything.
 //
-// This changes nothing shared. `38;2;R;G;B` is a 24-bit SGR sequence, which
-// kitty renders exactly as given without consulting the palette at all, so the
-// mark is the only thing on screen that moves. 23,147,209 is #1793D1, the blue
-// Arch uses for its own logo.
+// `38;2;R;G;B` is a 24-bit SGR sequence, which kitty renders exactly as given
+// without consulting the palette at all, so the mark is the only thing on screen
+// that moves. 23,147,209 is #1793D1, the blue Arch uses for its own logo.
 //
-// The arch logo has one colour slot. If a logo with more than one is ever
-// selected, the others stay at their defaults rather than being guessed at.
+// `modules` has to be here, and leaving it out is what broke this the first
+// time. A config file is fastfetch's WHOLE configuration, not a patch on top of
+// the defaults: with only a `logo` key it printed the logo and not one line of
+// system information, and said nothing about why. The list below is fastfetch's
+// own default order, read back from `--format json` rather than typed from
+// memory. Adding a module means adding it here; the defaults no longer apply.
 {
     "logo": {
         "color": {
             "1": "38;2;23;147;209"
         }
-    }
+    },
+    "modules": [
+        "title",
+        "separator",
+        "os",
+        "host",
+        "kernel",
+        "uptime",
+        "packages",
+        "shell",
+        "display",
+        "de",
+        "wm",
+        "wmtheme",
+        "theme",
+        "icons",
+        "font",
+        "cursor",
+        "terminal",
+        "terminalfont",
+        "cpu",
+        "gpu",
+        "memory",
+        "swap",
+        "disk",
+        "localip",
+        "battery",
+        "poweradapter",
+        "locale",
+        "break",
+        "colors"
+    ]
 }
