@@ -135,6 +135,7 @@ mirror "$SRC/npm/npmrc"              "$HOME/.npmrc"
 mirror "$SRC/zsh/config"             "$HOME/.config/zsh"
 mirror "$SRC/kitty"                  "$CONFIG/kitty"
 mirror "$SRC/tmux/tmux.conf"         "$CONFIG/tmux/tmux.conf"
+mirror "$SRC/fastfetch"              "$CONFIG/fastfetch"
 
 # git/gitconfig is included rather than linked over ~/.gitconfig. Linking would
 # replace the file that holds user.name and user.email, and an identity is not
