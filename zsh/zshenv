@@ -10,4 +10,33 @@
 # notes the npmrc form is specific to npm, while this one is read by yarn too.
 export npm_config_prefix="$HOME/.local"
 
-. "$HOME/.cargo/env"
+# Every directory a user-level installer writes executables into, appended.
+#
+# pacman's database ends at the files pacman installed, so neither side notices
+# when one of these holds a second copy of a repository binary: the package is
+# installed, updated and signature-checked, and the copy that runs is the other
+# one. Rust makes it concrete. rustup from the repositories symlinks its shims
+# into /usr/bin, while ~/.cargo/env prepends ~/.cargo/bin, and cargo-audit,
+# cargo-expand, mdbook and wasm-pack are repository packages whose binaries a
+# `cargo install` also leaves in that directory.
+#
+# Appending settles it in one place. Every name pacman owns resolves to pacman's
+# copy, and these directories stay reachable for what the repositories do not
+# carry: elan and the Lean toolchains, a crate with no package, an npm global.
+# The cost is that a deliberate override dropped in ~/.local/bin no longer wins.
+# That is the same rule seen from the other side, and it is the one that was
+# wanted.
+#
+# ~/.cargo/env is deliberately not sourced: it only prepends and takes no
+# option. Set here rather than in zshrc so a non-interactive shell -- a script,
+# a job started from the editor -- resolves commands the same way.
+# Each one is removed before it is appended. Appending alone is not enough:
+# zshenv runs for nested shells too, and `typeset -U` keeps the first occurrence
+# of a duplicate, so a directory the parent shell had put in front would simply
+# stay in front and the whole point would be lost silently.
+typeset -U path
+for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin"; do
+    path=("${(@)path:#$_userbin}")
+    [[ -d $_userbin ]] && path+=("$_userbin")
+done
+unset _userbin

@@ -1,2 +1,2 @@
-
-export PATH="$HOME/.elan/bin:$PATH"
+# elan and the Lean toolchains are appended with the other user binary
+# directories in zshenv, so that every shell resolves a command the same way.

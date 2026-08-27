@@ -224,12 +224,6 @@ alias peaclock-emerald='peaclock --config ~/.peaclock/config/color_emerald'
 alias unimatrix-safe='unimatrix -g black -c green -s 90 -a -n'
 
 alias el='eza --icons -al'
-export PATH="$HOME/.local/bin:$PATH"
-
-# `cargo install` puts binaries in ~/.cargo/bin, and Arch's rustup package does
-# not add that to PATH -- it only symlinks the toolchain shims into /usr/bin.
-# Guarded because a machine with no Rust should not carry a phantom entry.
-[[ -d "$HOME/.cargo/bin" ]] && export PATH="$HOME/.cargo/bin:$PATH"
 
 alias glow='glow -w $(tput cols)'
 
