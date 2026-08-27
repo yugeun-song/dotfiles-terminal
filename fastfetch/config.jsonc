@@ -11,6 +11,11 @@
 // without consulting the palette at all, so the mark is the only thing on screen
 // that moves. 23,147,209 is #1793D1, the blue Arch uses for its own logo.
 //
+// The leading `0;` turns bold off before the colour is applied. fastfetch emits
+// ESC[1m ahead of every logo line, and a terminal that draws bold brighter lifts
+// the mark off #1793D1 toward cyan. Resetting first makes what is on screen the
+// colour that was asked for.
+//
 // `modules` has to be here, and leaving it out is what broke this the first
 // time. A config file is fastfetch's WHOLE configuration, not a patch on top of
 // the defaults: with only a `logo` key it printed the logo and not one line of
@@ -20,7 +25,7 @@
 {
     "logo": {
         "color": {
-            "1": "38;2;23;147;209"
+            "1": "0;38;2;23;147;209"
         }
     },
     "modules": [
