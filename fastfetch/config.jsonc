@@ -1,31 +1,17 @@
-// The Arch logo in Arch's own blue, and nothing else changed.
+// The arch logo in #1793D1, Arch's own blue.
 //
-// fastfetch draws the logo out of the sixteen-colour palette by default, so the
-// arch mark came out in whichever spaceduck colour occupies that slot. The
-// obvious fix is the wrong one: moving a colour in the palette to suit one logo
-// would change every program that asks for that slot, including the text
-// console, whose table has to stay in step with kitty's for the tuigreet preview
-// to mean anything.
+// Two slots, not one: the upper rows are $1 and the lower ones $2. The leading
+// `0;` turns off the bold fastfetch puts before every logo line, which some
+// terminals draw brighter. 24-bit, so the palette is not touched.
 //
-// `38;2;R;G;B` is a 24-bit SGR sequence, which kitty renders exactly as given
-// without consulting the palette at all, so the mark is the only thing on screen
-// that moves. 23,147,209 is #1793D1, the blue Arch uses for its own logo.
-//
-// The leading `0;` turns bold off before the colour is applied. fastfetch emits
-// ESC[1m ahead of every logo line, and a terminal that draws bold brighter lifts
-// the mark off #1793D1 toward cyan. Resetting first makes what is on screen the
-// colour that was asked for.
-//
-// `modules` has to be here, and leaving it out is what broke this the first
-// time. A config file is fastfetch's WHOLE configuration, not a patch on top of
-// the defaults: with only a `logo` key it printed the logo and not one line of
-// system information, and said nothing about why. The list below is fastfetch's
-// own default order, read back from `--format json` rather than typed from
-// memory. Adding a module means adding it here; the defaults no longer apply.
+// `modules` must be listed. A config file replaces fastfetch's whole
+// configuration rather than patching it, and without this key it prints the
+// logo and no system information at all.
 {
     "logo": {
         "color": {
-            "1": "0;38;2;23;147;209"
+            "1": "0;38;2;23;147;209",
+            "2": "0;38;2;23;147;209"
         }
     },
     "modules": [
