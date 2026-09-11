@@ -146,6 +146,8 @@ export KEYTIMEOUT=1
 export EDITOR=nvim
 export VISUAL=nvim
 
+[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh"
+
 autoload -Uz add-zle-hook-widget edit-command-line
 
 # Cursor shape per mode (block=normal, beam=insert); p10k shows the text label

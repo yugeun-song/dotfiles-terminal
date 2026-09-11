@@ -133,6 +133,7 @@ mirror "$SRC/npm/npmrc"              "$HOME/.npmrc"
 # zshrc sources the drop-in from a literal ~/.config/zsh, so this one link
 # cannot follow XDG_CONFIG_HOME.
 mirror "$SRC/zsh/config"             "$HOME/.config/zsh"
+mirror "$SRC/shell"                  "$CONFIG/shell"
 mirror "$SRC/kitty"                  "$CONFIG/kitty"
 mirror "$SRC/tmux/tmux.conf"         "$CONFIG/tmux/tmux.conf"
 mirror "$SRC/fastfetch"              "$CONFIG/fastfetch"

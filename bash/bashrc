@@ -26,3 +26,4 @@ PS1='[\u@\h \W]\$ '
 . "$HOME/.cargo/env"
 
 case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh"
