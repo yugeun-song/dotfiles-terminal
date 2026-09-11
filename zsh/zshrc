@@ -240,3 +240,17 @@ nvim() {
 }
 
 [[ ! -f ~/.config/zsh/caps-lock.zsh ]] || source ~/.config/zsh/caps-lock.zsh
+
+# debug-max (managed): maximum-visibility debugging helpers
+[ -f "$HOME/.config/debug-max/debug-max.sh" ] && . "$HOME/.config/debug-max/debug-max.sh"
+
+# >>> gdbtools/kbuildlab private env (managed) >>>
+# Per-machine private settings for gdbtools/kbuildlab. The files under
+# ~/.config/{gdbtools,kbuildlab}/env are untracked; keep private values there,
+# not in the public checkouts. Absent files are a no-op.
+for _f in "${XDG_CONFIG_HOME:-$HOME/.config}/gdbtools/env" \
+          "${XDG_CONFIG_HOME:-$HOME/.config}/kbuildlab/env"; do
+    [ -r "$_f" ] && . "$_f"
+done
+unset _f
+# <<< gdbtools/kbuildlab private env (managed) <<<
