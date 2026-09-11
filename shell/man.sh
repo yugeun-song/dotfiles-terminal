@@ -40,9 +40,13 @@ fi
 # scrolls sideways on a narrow terminal, so the width is computed per call
 # rather than exported once at login, where it would freeze at whatever the
 # window happened to be.
+_man_width() {
+    w=${COLUMNS:-0}
+    [ "$w" -le 0 ] && w=$(tput cols 2>/dev/null || echo 80)
+    [ "$w" -gt 100 ] && w=100
+    echo "$w"
+}
+
 man() {
-    _man_w=${COLUMNS:-0}
-    [ "$_man_w" -le 0 ] && _man_w=$(tput cols 2>/dev/null || echo 80)
-    [ "$_man_w" -gt 100 ] && _man_w=100
-    MANWIDTH=$_man_w command man "$@"
+    MANWIDTH=$(_man_width) command man "$@"
 }
