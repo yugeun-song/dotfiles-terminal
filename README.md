@@ -1,133 +1,86 @@
 # dotfiles-terminal
 
 Terminal-side configuration: shell, prompt, terminal emulator, multiplexer.
-
-Everything here is machine independent. Paths are relative to `$HOME`, so the
-files work under any account name.
+Machine independent; every path is relative to `$HOME`.
 
 ## Layout
 
 ```
-zsh/        zshrc, zshenv, zprofile, powerlevel10k prompt, drop-ins under config/
-bash/       bashrc, for the sessions that are not zsh
-git/        shared git settings, with no identity in them
-kitty/      kitty.conf with the spaceduck palette and two kittens
-tmux/       tmux.conf
-bootstrap.sh  what has to be cloned rather than linked
+zsh/          zshrc, zshenv, zprofile, p10k.zsh (prompt), config/caps-lock.zsh
+bash/         bashrc, for shells that are not zsh
+shell/        man.sh, man page settings sourced by both shells
+git/          shared git settings, no identity
+kitty/        kitty.conf, spaceduck palette, search kitten (search.py + scroll_mark.py)
+tmux/         tmux.conf
+npm/          npmrc
+fastfetch/    config.jsonc
+install.sh    places the files (below)
+bootstrap.sh  clones what is not a file here, sets the login shell
 ```
-
-## Drop-ins
-
-`zshenv` and `bashrc` source every `~/.config/profile.d/*.sh` owned by this
-user and not writable by group or others. A tool puts its environment there
-instead of in these files; dotfiles-desktop installs `node.sh` this way.
-
-With a Wayland, X11, macOS or tmux clipboard, or a terminal known to accept
-OSC 52, a vi-mode yank (`y`, `yy`, `Y`) in zsh also copies to that clipboard.
-The first backend that works is used. With none, yank stays in zsh.
-
-## Links and copies
-
-Two ways in, and which one a file gets is not a style choice.
-
-A **link** is for what is written here and reloaded in place: the Hyprland
-configuration, the quickshell tree, the scripts. `hyprctl reload` and a bar
-restart read those straight off disk, so editing through a copy would mean
-running the installer between every change. Nothing else writes to them, so
-the link cannot be replaced behind anyone's back.
-
-A **copy** is for everything a program owns. fcitx5, KDE and GTK save by
-writing a temp file beside the target and rename()-ing it over, and rename()
-replaces a symlink rather than following it: the first change made in one of
-their settings windows turns the link into a real file, and this repository
-quietly stops being what the machine reads. `p10k configure` is worse, writing
-through the link and editing the repository without saying so.
-
-So those are seeded: copied once, and left alone afterwards. The installer
-says what it did, and refuses to overwrite a seeded file that has diverged.
-
-    seeded ~/.config/fcitx5/config
-    left ~/.config/kdeglobals alone: it exists and differs
-      copy it back into <repo> to keep the change
-
-**After editing a seeded file here, run `./install.sh` again** — a copy does
-not update itself. To keep a change made through a program's own interface,
-copy the file back into this repository.
 
 ## Install
 
 ```sh
-./install.sh
+./install.sh      # every time a file here changes
+./bootstrap.sh    # once on a fresh machine; reaches the network, runs sudo chsh
 ```
 
-The script symlinks each file into place and moves an existing config aside
-with a timestamped suffix rather than overwriting it.
+`install.sh` copies; it creates no symlinks.
 
-On a machine that has never had this setup, one more step:
+- **Mirrored** (overwritten on every run): zshrc, zshenv, zprofile, bashrc,
+  npmrc into `~`; `zsh/config` into `~/.config/zsh`; `shell`, `kitty`,
+  `fastfetch` and `tmux/tmux.conf` into `$XDG_CONFIG_HOME`. Mirrored
+  directories lose files the repository no longer has. A symlink left by an
+  older install is replaced. Edit here, then re-run.
+- **Seeded** (copied once): `zsh/p10k.zsh` to `~/.p10k.zsh`, because
+  `p10k configure` rewrites it and would write through a link into the
+  repository. A diverged copy is reported and left alone; copy it back here to
+  keep the change.
+- **Included**: `git/gitconfig` is added to `include.path` in `~/.gitconfig`
+  as an absolute path into this checkout. Moving the checkout breaks the
+  include; re-run `install.sh` after a move.
 
-```sh
-./bootstrap.sh
-```
+`bootstrap.sh` clones Oh My Zsh with powerlevel10k, zsh-autosuggestions and
+zsh-syntax-highlighting into its custom directory (Oh My Zsh does not load the
+Arch-packaged plugins from `/usr/share`), clones the nvim configuration to
+`~/nvim-config` and links it as `~/.config/nvim` (from `NVIM_CONFIG_URL`, or
+the `gh` login's `nvim-config`), and makes zsh the login shell. Existing clones
+are fast-forwarded, never replaced.
 
-`zsh/zshrc` expects an Oh My Zsh tree with a theme and two plugins cloned into
-it, and none of the three is an Arch package: powerlevel10k is not in the
-official repositories at all, and the zsh-users plugins are packaged but Oh My
-Zsh loads them from its own custom path rather than from `/usr/share`. So a
-fresh machine has a zshrc referencing a theme that is not there, and zsh prints
-an error on every prompt. `bootstrap.sh` clones what is missing, updates what
-is already there, restores the editor configuration, and switches the login
-shell to zsh. It is separate from `install.sh` because it reaches the network
-and changes an account setting, and `install.sh` only places links.
+## Shell notes
 
-## History
-
-Oh My Zsh caps saved history at 10000 entries and stops there. At the rate this
-account actually runs commands that ceiling filled in 284 days, and once it is
-reached every new command silently evicts the oldest one. Both shells now keep
-500000, which is about 24MB and adds roughly 290ms to shell startup — a cost
-that is not felt, because the powerlevel10k instant prompt at the top of zshrc
-draws the prompt before the history file is read. Searching the full set with
-fzf measures around 80ms, so Ctrl-R stays immediate.
-
-bash had a worse problem than a small ceiling: without `histappend`, whichever
-shell exits last overwrites the file with only its own session, discarding
-every other terminal's history. It is not the login shell here, but a rescue
-shell or a container gets one, and there is no reason for those to throw their
-history away.
+- `zshenv` appends `~/.local/bin`, `~/.cargo/bin` and `~/.elan/bin` to PATH,
+  so pacman-owned binaries always win over user-installed duplicates. `bashrc`
+  still prepends `~/.local/bin` and sources `~/.cargo/env`.
+- Both shells source every `~/.config/profile.d/*.sh` owned by this user and
+  not writable by group or others. Tools put their environment there
+  (dotfiles-desktop installs `node.sh`).
+- History is 500000 entries in both shells; bash also gets `histappend` so
+  concurrent sessions do not overwrite each other.
+- Vi-mode yanks (`y`, `yy`, `Y`) in zsh also copy to the first working
+  clipboard: wl-copy, xclip, xsel, pbcopy, tmux, or OSC 52 on a terminal known
+  to accept it.
+- `zsh/config/caps-lock.zsh` adds a right-prompt CAPS LOCK segment. A
+  background loop polls `/sys/class/leds/*::capslock/brightness` every 200 ms
+  while the shell lives (`CAPSLOCK_LED_PATHS`, `CAPSLOCK_POLL_CS` override).
+  It disables itself without LED nodes or without p10k.
 
 ## Git
 
-`git/gitconfig` carries the settings that are the same everywhere and no
-identity. The file is public and meant to work on any machine, so `user.name`
-and `user.email` are deliberately absent and nothing fills them in: an identity
-set by a script is one nobody checked, and the first commit under the wrong
-name is silent. Set them once, by hand.
+`git/gitconfig` has no `user.name` or `user.email`, and nothing sets them.
+Set them once, by hand:
 
 ```sh
 git config --global user.name  'Your Name'
 git config --global user.email 'you@example.com'
 ```
 
-`install.sh` includes the file from `~/.gitconfig` rather than linking over it,
-because linking would replace the one place the identity lives. Later entries
-win in git config, so anything set directly in `~/.gitconfig` still overrides
-what is included.
+There is no plaintext `credential.helper`; GitHub credentials come from
+`gh auth git-credential`.
 
-There is no `credential.helper` either. The `store` helper writes tokens in
-plaintext to `~/.git-credentials`, and `gh` already keeps one in the system
-keyring, so the per-host helpers are the whole credential story.
+## Requirements
 
-## Notes
-
-The kitty configuration expects two fonts: CaskaydiaCove Nerd Font Mono for
-text and Pretendard for Hangul, wired through `symbol_map` so mixed lines stay
-aligned. Without them kitty falls back and the alignment drifts.
-
-The prompt is powerlevel10k, and there is deliberately only one. starship
-would do the same job and works under zsh perfectly well, but running both
-means one of them is dead configuration, and the Caps Lock segment below is
-written against p10k's segment API.
-
-`zsh/config/caps-lock.zsh` adds a Caps Lock segment to the prompt by watching
-`/sys/class/leds/*::capslock/brightness`. It costs nothing when Caps Lock is
-off and disables itself when the LED nodes are absent.
+- kitty expects CaskaydiaCove Nerd Font Mono and Pretendard (Hangul, via
+  `symbol_map`). Without them the alignment of mixed lines drifts.
+- tmux copy-mode yanks through `wl-copy`.
+- There is one prompt, powerlevel10k; the Caps Lock segment uses its API.

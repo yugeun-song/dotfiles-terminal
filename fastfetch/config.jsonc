@@ -1,12 +1,6 @@
-// The arch logo in #1793D1, Arch's own blue.
-//
-// Two slots, not one: the upper rows are $1 and the lower ones $2. The leading
-// `0;` turns off the bold fastfetch puts before every logo line, which some
-// terminals draw brighter. 24-bit, so the palette is not touched.
-//
-// `modules` must be listed. A config file replaces fastfetch's whole
-// configuration rather than patching it, and without this key it prints the
-// logo and no system information at all.
+// Whole Arch logo (both slots $1 and $2) in #1793D1, 24-bit. `0;` drops the
+// bold fastfetch adds. `modules` is required: a config file replaces the
+// defaults, and without it only the logo prints.
 {
     "logo": {
         "color": {

@@ -1,12 +1,4 @@
-# Where `npm install -g` puts things.
-#
-# Without this it puts them in /usr/lib/node_modules, which pacman owns: the
-# npm package itself lives there. A global install writes into a directory
-# under package management, the next `pacman -Syu` that touches npm writes over
-# it, and `pacman -Qkk npm` starts reporting altered files.
-#
-# Arch does not prevent this the way it prevents the same mistake with pip.
-# There, /usr/lib/python3.x/EXTERNALLY-MANAGED makes pip refuse and name the
-# pacman package to use instead. npm has no equivalent, so the prefix is set
-# here and nothing else is protecting it.
+# Keep `npm install -g` out of pacman-owned /usr/lib/node_modules. Arch has no
+# EXTERNALLY-MANAGED guard for npm as it does for pip. zshenv also sets
+# npm_config_prefix, which yarn reads too.
 prefix=${HOME}/.local

@@ -1,2 +1,1 @@
-# elan and the Lean toolchains are appended with the other user binary
-# directories in zshenv, so that every shell resolves a command the same way.
+# PATH lives in zshenv so every shell, login or not, resolves commands alike.

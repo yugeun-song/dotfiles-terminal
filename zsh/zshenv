@@ -1,39 +1,13 @@
-# Where `npm install -g` and `yarn global` put things.
-#
-# Without it they write into /usr/lib/node_modules, which pacman owns, and the
-# Arch wiki's Node.js page states the consequence plainly: "Running foreign
-# package managers (in this case npm) as root will cause conflicts with pacman."
-# Nothing in the packaging prevents it, unlike pip, where the system Python is
-# marked externally managed and pip refuses by name.
-#
-# The variable rather than a prefix in ~/.npmrc, which is also carried: the wiki
-# notes the npmrc form is specific to npm, while this one is read by yarn too.
+# Keep `npm install -g` and `yarn global` out of pacman-owned
+# /usr/lib/node_modules. The variable, unlike ~/.npmrc, is read by yarn too.
 export npm_config_prefix="$HOME/.local"
 
-# Every directory a user-level installer writes executables into, appended.
-#
-# pacman's database ends at the files pacman installed, so neither side notices
-# when one of these holds a second copy of a repository binary: the package is
-# installed, updated and signature-checked, and the copy that runs is the other
-# one. Rust makes it concrete. rustup from the repositories symlinks its shims
-# into /usr/bin, while ~/.cargo/env prepends ~/.cargo/bin, and cargo-audit,
-# cargo-expand, mdbook and wasm-pack are repository packages whose binaries a
-# `cargo install` also leaves in that directory.
-#
-# Appending settles it in one place. Every name pacman owns resolves to pacman's
-# copy, and these directories stay reachable for what the repositories do not
-# carry: elan and the Lean toolchains, a crate with no package, an npm global.
-# The cost is that a deliberate override dropped in ~/.local/bin no longer wins.
-# That is the same rule seen from the other side, and it is the one that was
-# wanted.
-#
-# ~/.cargo/env is deliberately not sourced: it only prepends and takes no
-# option. Set here rather than in zshrc so a non-interactive shell -- a script,
-# a job started from the editor -- resolves commands the same way.
-# Each one is removed before it is appended. Appending alone is not enough:
-# zshenv runs for nested shells too, and `typeset -U` keeps the first occurrence
-# of a duplicate, so a directory the parent shell had put in front would simply
-# stay in front and the whole point would be lost silently.
+# User-level bin dirs go last, so a name pacman owns always resolves to the
+# packaged copy (e.g. a `cargo install` duplicate of a repo binary cannot
+# shadow it). Cost: an override in ~/.local/bin no longer wins. ~/.cargo/env
+# is not sourced because it prepends. Here, not in zshrc, so scripts resolve
+# the same way. Each dir is removed first: `typeset -U` keeps the first
+# occurrence, so a dir a parent shell put in front would otherwise stay there.
 typeset -U path
 for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin"; do
     path=("${(@)path:#$_userbin}")
@@ -41,8 +15,7 @@ for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin"; do
 done
 unset _userbin
 
-# Per-tool environment drop-ins. Only files owned by this user and not
-# writable by group or others are sourced.
+# Per-tool drop-ins; only files owned by this user and not group/other-writable.
 for _f in "${XDG_CONFIG_HOME:-$HOME/.config}"/profile.d/*.sh(N.U^IW); do
     . "$_f"
 done

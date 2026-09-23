@@ -1,16 +1,6 @@
-# Git configuration, without the identity.
-#
-# user.name and user.email are deliberately absent: this file is public and
-# is meant to work on any machine, and an identity baked in here would be
-# committed under the wrong name the first time someone else used it.
-# They are set by hand, once, and stay in ~/.gitconfig, which includes this
-# file rather than being replaced by it.
-#
-# There is no credential.helper here either. The store helper writes tokens in
-# plaintext to ~/.git-credentials, and gh already holds one in the system
-# keyring, so the per-host helpers below are the whole credential story. The
-# empty `helper =` before each one clears anything inherited from a system or
-# global config, so a plaintext helper cannot come back in behind these.
+# Shared settings, no identity: user.name/user.email are set by hand in
+# ~/.gitconfig, which includes this file. Credentials come only from gh; the
+# empty `helper =` clears any inherited helper (e.g. plaintext `store`).
 
 [credential "https://github.com"]
 	helper =
@@ -27,6 +17,5 @@
 	defaultBranch = main
 
 [pull]
-	# Merge or rebase are both defensible; refusing to guess is not, because
-	# the guess only shows up as a surprise merge commit after the fact.
+	# Fail on divergence instead of creating a surprise merge commit.
 	ff = only
