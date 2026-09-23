@@ -3,7 +3,16 @@
 #
 
 # Before the guard: a non-interactive login bash reads this via ~/.bash_profile.
-case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+# Same policy as zshenv: user bin directories go last, so pacman's copies win.
+for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin"; do
+    PATH=":$PATH:"
+    PATH="${PATH//:"$_userbin":/:}"
+    PATH="${PATH#:}"
+    PATH="${PATH%:}"
+    [ -d "$_userbin" ] && PATH="${PATH:+$PATH:}$_userbin"
+done
+unset _userbin
+export PATH
 
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
@@ -26,7 +35,6 @@ done
 unset _f
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh"
 [ -r $HOME/.config/byobu/prompt ] && . $HOME/.config/byobu/prompt   #byobu-prompt#
-. "$HOME/.cargo/env"
 
 # debug-max (managed): maximum-visibility debugging helpers
 [ -f "$HOME/.config/debug-max/debug-max.sh" ] && . "$HOME/.config/debug-max/debug-max.sh"
