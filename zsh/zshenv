@@ -40,3 +40,10 @@ for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin"; do
     [[ -d $_userbin ]] && path+=("$_userbin")
 done
 unset _userbin
+
+# Per-tool environment drop-ins. Only files owned by this user and not
+# writable by group or others are sourced.
+for _f in "${XDG_CONFIG_HOME:-$HOME/.config}"/profile.d/*.sh(N.U^IW); do
+    . "$_f"
+done
+unset _f

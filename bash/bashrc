@@ -26,6 +26,10 @@ shopt -s cmdhist
 alias ls='ls --color=auto'
 alias grep='grep --color=auto'
 PS1='[\u@\h \W]\$ '
+for _f in "${XDG_CONFIG_HOME:-$HOME/.config}"/profile.d/*.sh; do
+    [ -f "$_f" ] && [ -O "$_f" ] && [ -z "$(find "$_f" -maxdepth 0 -perm /022 2>/dev/null)" ] && . "$_f"
+done
+unset _f
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh"
 [ -r $HOME/.config/byobu/prompt ] && . $HOME/.config/byobu/prompt   #byobu-prompt#
 . "$HOME/.cargo/env"
