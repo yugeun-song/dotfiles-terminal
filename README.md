@@ -22,6 +22,10 @@ bootstrap.sh  what has to be cloned rather than linked
 user and not writable by group or others. A tool puts its environment there
 instead of in these files; dotfiles-desktop installs `node.sh` this way.
 
+With a Wayland, X11, macOS or tmux clipboard, or a terminal known to accept
+OSC 52, a vi-mode yank (`y`, `yy`, `Y`) in zsh also copies to that clipboard.
+The first backend that works is used. With none, yank stays in zsh.
+
 ## Links and copies
 
 Two ways in, and which one a file gets is not a style choice.

@@ -186,6 +186,52 @@ zle -N edit-command-line
 bindkey -M viins '^X^E' edit-command-line
 bindkey -M vicmd '^X^E' edit-command-line
 
+_clipboard_backends() {
+    local -a b
+    [[ -n $WAYLAND_DISPLAY ]] && (( $+commands[wl-copy] )) && b+=(wl-copy)
+    [[ -n $DISPLAY ]] && (( $+commands[xclip] )) && b+=(xclip)
+    [[ -n $DISPLAY ]] && (( $+commands[xsel] )) && b+=(xsel)
+    (( $+commands[pbcopy] )) && b+=(pbcopy)
+    [[ -n $TMUX ]] && (( $+commands[tmux] )) && b+=(tmux)
+    [[ -w /dev/tty ]] && (( $+commands[base64] )) &&
+        [[ $TERM == (xterm-kitty|foot*|alacritty|wezterm|xterm-ghostty) ||
+           $TERM_PROGRAM == (iTerm.app|WezTerm|ghostty) ]] && b+=(osc52)
+    print -r -- $b
+}
+_clipboard_pipe() {
+    if (( $+commands[timeout] )); then
+        print -rn -- "$1" | timeout 2 "${@:2}" >/dev/null 2>&1
+    else
+        print -rn -- "$1" | "${@:2}" >/dev/null 2>&1
+    fi
+}
+_cutbuffer_to_clipboard() {
+    local data=$CUTBUFFER backend enc
+    [[ -n $data ]] || return 0
+    for backend in ${=$(_clipboard_backends)}; do
+        case $backend in
+            wl-copy) _clipboard_pipe "$data" wl-copy && return 0 ;;
+            xclip)   _clipboard_pipe "$data" xclip -selection clipboard && return 0 ;;
+            xsel)    _clipboard_pipe "$data" xsel --clipboard --input && return 0 ;;
+            pbcopy)  _clipboard_pipe "$data" pbcopy && return 0 ;;
+            tmux)    _clipboard_pipe "$data" tmux load-buffer -w - && return 0 ;;
+            osc52)
+                enc=$(print -rn -- "$data" | base64 | tr -d '\n') || continue
+                (( ${#enc} <= 100000 )) || continue
+                printf '\e]52;c;%s\a' "$enc" 2>/dev/null >/dev/tty && return 0 ;;
+        esac
+    done
+    return 0
+}
+if [[ -n $(_clipboard_backends) ]]; then
+    _vi_yank_clip()            { zle .vi-yank            && _cutbuffer_to_clipboard }
+    _vi_yank_whole_line_clip() { zle .vi-yank-whole-line && _cutbuffer_to_clipboard }
+    _vi_yank_eol_clip()        { zle .vi-yank-eol        && _cutbuffer_to_clipboard }
+    zle -N vi-yank            _vi_yank_clip
+    zle -N vi-yank-whole-line _vi_yank_whole_line_clip
+    zle -N vi-yank-eol        _vi_yank_eol_clip
+fi
+
 # fzf sourced AFTER vi mode so Ctrl-R / Ctrl-T survive bindkey -v
 [ -f /usr/share/fzf/key-bindings.zsh ] && source /usr/share/fzf/key-bindings.zsh
 [ -f /usr/share/fzf/completion.zsh ] && source /usr/share/fzf/completion.zsh
