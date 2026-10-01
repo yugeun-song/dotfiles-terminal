@@ -1,3 +1,6 @@
+# Kitty search from https://github.com/trygveaa/kitty-kitten-search
+# License: GPLv3
+
 from kittens.tui.handler import result_handler
 from kitty.boss import Boss
 

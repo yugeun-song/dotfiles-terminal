@@ -1,5 +1,6 @@
 # Kitty search from https://github.com/trygveaa/kitty-kitten-search
 # License: GPLv3
+# Modified 2026-08-28: F3 and Shift+F3 also move between matches.
 
 import json
 import re
