@@ -1,4 +1,7 @@
 #!/bin/sh
+# `eza --icons -al` with eza's output untouched, for any user and under sudo,
+# which finds the root-owned copy in /usr/local/bin. Nothing in the invoking
+# user's home is read or run, so root only ever runs root-owned code.
 
 nl='
 '
@@ -10,6 +13,8 @@ warn() {
 tried=$nl
 reason=
 
+# An eza that cannot start, such as one whose shared library a partial upgrade
+# replaced, fails --version before printing anything; the next one is tried.
 usable() {
     [ -n "$1" ] || return 1
     case $tried in
@@ -35,6 +40,8 @@ try_eza() {
 [ -n "${PATH-}" ] || PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
+# sudo can drop LS_COLORS. Rebuild it as Oh My Zsh does, reading ~/.dircolors
+# only when it is a regular file owned by the user running el.
 if [ -z "${LS_COLORS-}" ] && command -v dircolors >/dev/null 2>&1; then
     colors=
     own=

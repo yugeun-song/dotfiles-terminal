@@ -147,6 +147,7 @@ alias peaclock-emerald='peaclock --config ~/.peaclock/config/color_emerald'
 
 alias unimatrix-safe='unimatrix -g black -c green -s 90 -a -n'
 
+# el is bin/el on PATH; the alias stands in only while that is not installed.
 (( $+commands[el] )) || alias el='eza --icons -al'
 (( $+_comps[eza] )) && compdef el=eza
 

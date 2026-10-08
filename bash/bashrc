@@ -28,6 +28,7 @@ shopt -s cmdhist
 
 alias ls='ls --color=auto'
 alias grep='grep --color=auto'
+# el is bin/el on PATH; the alias stands in only while that is not installed.
 if ! command -v el >/dev/null 2>&1 && command -v eza >/dev/null 2>&1; then
     alias el='eza --icons -al'
 fi

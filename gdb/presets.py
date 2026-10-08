@@ -1,3 +1,8 @@
+# Sourced from the block install.sh keeps at the top of the gdb init file. Loads
+# pwndbg, then applies the stock preset, or linux_kernel (stock plus
+# debug-max.gdb) when GDBTOOLS_AUTO is set or a Linux Kernel image or module is
+# loaded; GDB_PRESET=stock|linux_kernel overrides. Everything is local to one
+# function, so nothing of this file stays in gdb's __main__.
 def _gdb_presets(here):
     import os
     import struct
@@ -16,6 +21,10 @@ def _gdb_presets(here):
         sys.stderr.write("gdb presets: %s\n" % text)
         sys.stderr.flush()
 
+    # pwndbg finds its virtualenv from __file__, and CPython keeps an existing
+    # __main__.__file__ when gdb runs a nested file, so it is set here. Without
+    # the gdb module (an Arch cross gdb whose Python package lags gdb-common),
+    # the file runs directly and pwndbg puts its own gdb package on sys.path.
     def source(path):
         gdb = sys.modules.get("gdb")
         namespace = sys.modules["__main__"].__dict__
@@ -34,6 +43,7 @@ def _gdb_presets(here):
             else:
                 namespace["__file__"] = saved
 
+    # The virtualenv whose absence makes pwndbg's loader end gdb with os._exit.
     def pwndbg_venv(loader):
         override = os.environ.get("PWNDBG_VENV_PATH")
         if override:
@@ -97,6 +107,10 @@ def _gdb_presets(here):
                     names.add(strings[start:end].decode("latin-1"))
             return names
 
+    # Section names, not file names or debug info: every module has
+    # .gnu.linkonce.this_module, a vmlinux has .init.text with __ksymtab or
+    # __param, and userspace objects have none of them (measured on arm64,
+    # riscv64 and x86_64 images and 400 modules).
     def linux_kernel_object(path):
         if not path or not os.path.isfile(path):
             return False
@@ -108,6 +122,9 @@ def _gdb_presets(here):
             return True
         return ".init.text" in names and not names.isdisjoint(image_markers)
 
+    # pwndbg sets auto-load safe-path to /, which runs any .gdbinit in the
+    # working directory and any *-gdb.py next to a loaded file. The value in
+    # force before pwndbg is put back, or gdb's default when it cannot be read.
     trusted = None
     early = sys.modules.get("gdb")
     if early is not None and hasattr(early, "parameter"):
@@ -151,6 +168,8 @@ def _gdb_presets(here):
         except Exception as error:
             say("the linux_kernel preset stopped early: %s" % error)
 
+    # kbuildlab, the nvim kernel adapter and the VS Code wrapper set
+    # GDBTOOLS_AUTO for a Linux Kernel session.
     if choice == "linux_kernel" or os.environ.get("GDBTOOLS_AUTO"):
         apply_linux_kernel()
         return

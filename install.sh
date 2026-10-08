@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Installs the terminal configuration. mirror() overwrites on every run; seed()
-# copies once and never overwrites. Re-run after editing a file here.
+# copies once and never overwrites; gdb_presets() keeps one managed block at the
+# top of the gdb init file. Re-run after editing a file here.
 set -euo pipefail
 
 SRC="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
@@ -107,9 +108,16 @@ mirror "$SRC/shell"                  "$CONFIG/shell"
 mirror "$SRC/kitty"                  "$CONFIG/kitty"
 mirror "$SRC/tmux/tmux.conf"         "$CONFIG/tmux/tmux.conf"
 mirror "$SRC/fastfetch"              "$CONFIG/fastfetch"
+# File by file: mirroring the directory would delete a gdbinit or gdbearlyinit
+# that gdb reads from there.
 mirror "$SRC/gdb/presets.py"         "$CONFIG/gdb/presets.py"
 mirror "$SRC/gdb/debug-max.gdb"      "$CONFIG/gdb/debug-max.gdb"
 
+# gdb reads exactly one user init file, so gdb is asked which. The block records
+# where pwndbg's gdbinit.py is and sources presets.py. A raw pwndbg `source`
+# line, which pwndbg's setup.sh appends, moves into the block, and the inline
+# debug-max block that predates gdb/debug-max.gdb is dropped. Other blocks stay;
+# a symlinked file or unpaired markers are left alone.
 gdb_presets() {
     local help init begin end raw recorded pwndbg="" candidate block tmp
     local -a candidates=()
@@ -210,6 +218,8 @@ gdb_presets() {
 }
 gdb_presets
 
+# sudo searches only its secure_path, so `sudo el` needs a root-owned copy
+# there. The command is printed, never run: this script does not use sudo.
 if [[ -f /usr/local/bin/el ]] && cmp -s "$SRC/bin/el" /usr/local/bin/el; then
     echo "sudo el: /usr/local/bin/el matches bin/el"
 else

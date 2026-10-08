@@ -1,7 +1,10 @@
+# The linux_kernel preset, sourced after pwndbg so these settings win.
+
 set debuginfod enabled on
 set debug-file-directory /usr/lib/debug
 
 set print pretty on
+# Finite: pwndbg fails on 0 or unlimited ("count should be greater than zero").
 set print elements 100000
 set print repeats unlimited
 set print array on
@@ -17,6 +20,8 @@ set backtrace past-main on
 set backtrace past-entry on
 set backtrace limit unlimited
 
+# disassembly-flavor exists only for x86, and its error elsewhere would abort
+# the rest of this file; applied for x86 now and at every architecture change.
 python
 import gdb
 def _dbgmax_x86_flavor(*_):
@@ -45,6 +50,8 @@ for _evt in ("new_objfile", "architecture_changed"):
         except Exception:
             pass
 end
+# A remote target such as QEMU's gdbstub rejects disable-randomization, and the
+# error would abort the rest of this file.
 python
 import gdb
 try:
@@ -60,6 +67,7 @@ set history remove-duplicates unlimited
 set pagination off
 set confirm off
 
+# Opt-in behaviours: type the command name to turn one on.
 define maxfork
   set detach-on-fork off
   set follow-fork-mode child

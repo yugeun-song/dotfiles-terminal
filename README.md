@@ -1,7 +1,8 @@
 # dotfiles-terminal
 
-Terminal-side configuration: shell, prompt, terminal emulator, multiplexer.
-Machine independent; every path is relative to `$HOME`.
+Terminal-side configuration: shell, prompt, terminal emulator, multiplexer,
+debugger. Machine independent; every path is relative to `$HOME`, apart from
+the root-owned copy of `el` that `sudo el` needs.
 
 ## Layout
 
@@ -136,3 +137,6 @@ cross gdb whose package lags gdb-common still starts pwndbg.
   `symbol_map`). Without them the alignment of mixed lines drifts.
 - tmux copy-mode yanks through `wl-copy`.
 - There is one prompt, powerlevel10k; the Caps Lock segment uses its API.
+- `el` expects eza and falls back to `ls` without it.
+- The gdb presets load pwndbg from wherever its `setup.sh` registered it,
+  `~/pwndbg` or `/usr/share/pwndbg`; without pwndbg, gdb runs plain.
