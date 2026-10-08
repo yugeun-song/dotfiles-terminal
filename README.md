@@ -11,6 +11,7 @@ bash/         bashrc, for shells that are not zsh
 shell/        man.sh, man page settings sourced by both shells
 bin/          el, eza's long listing as a script that sudo can run
 git/          shared git settings, no identity
+gdb/          presets.py and debug-max.gdb: stock pwndbg or the Linux Kernel preset
 kitty/        kitty.conf, spaceduck palette, search kitten (search.py + scroll_mark.py)
 tmux/         tmux.conf
 npm/          npmrc
@@ -31,9 +32,9 @@ bootstrap.sh  clones what is not a file here, sets the login shell
 - **Mirrored** (overwritten on every run): zshrc, zshenv, zprofile, bashrc,
   npmrc into `~`; `bin/el` into `~/.local/bin`; `zsh/config` into
   `~/.config/zsh`; `shell`, `kitty`, `fastfetch` and `tmux/tmux.conf` into
-  `$XDG_CONFIG_HOME`. Mirrored directories lose files the repository no
-  longer has. A symlink left by an older install is replaced. Edit here, then
-  re-run.
+  `$XDG_CONFIG_HOME`; the two files in `gdb/` into `$XDG_CONFIG_HOME/gdb`.
+  Mirrored directories lose files the repository no longer has. A symlink
+  left by an older install is replaced. Edit here, then re-run.
 - **Seeded** (copied once): `zsh/p10k.zsh` to `~/.p10k.zsh`, because
   `p10k configure` rewrites it and would write through a link into the
   repository. A diverged copy is reported and left alone; copy it back here to
@@ -41,6 +42,12 @@ bootstrap.sh  clones what is not a file here, sets the login shell
 - **Included**: `git/gitconfig` is added to `include.path` in `~/.gitconfig`
   as an absolute path into this checkout. Moving the checkout breaks the
   include; re-run `install.sh` after a move.
+- **Managed block**: the init file gdb reads (normally `~/.gdbinit`) starts
+  with a block that records where pwndbg's `gdbinit.py` is and sources
+  `presets.py`. A `source .../pwndbg/gdbinit.py` line elsewhere in the file,
+  which pwndbg's `setup.sh` appends, is moved into the block, and the old
+  inline debug-max block is dropped. Other blocks are left alone; the previous
+  file is kept as `.bak-STAMP` whenever something changes.
 
 `bootstrap.sh` clones Oh My Zsh with powerlevel10k, zsh-autosuggestions and
 zsh-syntax-highlighting into its custom directory (Oh My Zsh does not load the
@@ -95,6 +102,33 @@ git config --global user.email 'you@example.com'
 
 There is no plaintext `credential.helper`; GitHub credentials come from
 `gh auth git-credential`.
+
+## gdb
+
+`presets.py` decides inside gdb what it loads, so the terminal, kbuildlab,
+nvim and VS Code all get the same rule.
+
+- **stock**: pwndbg. When pwndbg's `gdbinit.py` or its virtualenv is missing,
+  plain gdb and one line saying why; pwndbg's own loader would end gdb with
+  `os._exit` instead.
+- **linux_kernel**: stock plus `debug-max.gdb` (print limits lifted, history
+  kept, `maxfork`, `logon`, `syscatch`). Applied when `GDBTOOLS_AUTO` is set,
+  as kbuildlab, the nvim kernel adapter and the VS Code wrapper do, or when a
+  Linux Kernel image or module is loaded: an ELF with
+  `.gnu.linkonce.this_module`, or with `.init.text` and `__ksymtab` or
+  `__param`.
+- `GDB_PRESET=stock` or `GDB_PRESET=linux_kernel` overrides the choice;
+  `gdb -nx` reads no init file at all.
+
+pwndbg sets `auto-load safe-path` to `/`, which runs any `.gdbinit` in the
+working directory and any `*-gdb.py` beside a loaded file, such as one
+shipped next to an untrusted binary. `presets.py` puts back the value in force
+before pwndbg loaded, gdb's default here; the kbuildlab block below it then
+adds the kernel research tree, so `lx-*` still loads there. Anywhere else gdb
+declines and says how to allow the path.
+
+pwndbg is sourced before anything imports gdb's Python package, so an Arch
+cross gdb whose package lags gdb-common still starts pwndbg.
 
 ## Requirements
 
