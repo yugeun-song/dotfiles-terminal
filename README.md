@@ -59,15 +59,22 @@ are fast-forwarded, never replaced.
   (dotfiles-desktop installs `node.sh`).
 - History is 500000 entries in both shells; bash also gets `histappend` so
   concurrent sessions do not overwrite each other.
-- `el` is `eza --icons -al`, installed as a script in `~/.local/bin` so that
-  sudo can run it. Both shells alias `sudo` to `sudo ` (the trailing space
-  expands the next word as an alias too) and `el` to the script's absolute
-  path, which sudo's `secure_path` would not find. Options between `sudo` and
-  `el` (`sudo -E el`) stop that expansion. Under sudo the script rebuilds a
-  dropped `LS_COLORS` the way Oh My Zsh does and reads the invoking user's eza
-  theme, so the listing looks the same. An eza that fails to start is passed
-  over for the invoking user's or `/usr/bin`'s; with none left it runs
-  `ls -lAh` and says why on stderr.
+- `el` is `eza --icons -al` as a script, `bin/el`, found through PATH. sudo
+  looks for commands only in its `secure_path`, so `sudo el` needs a
+  root-owned copy there. Install it once, and again after `bin/el` changes;
+  `install.sh` prints the command while that copy is missing or stale:
+
+  ```sh
+  sudo install -m 0755 -o root -g root bin/el /usr/local/bin/el
+  ```
+
+  Every sudo form then works (`sudo -u USER el`, `el` in a `sudo -i` shell),
+  and root runs only root-owned files: the script never reads or runs
+  anything from the invoking user's home. When sudo drops `LS_COLORS`, the
+  script rebuilds it with `dircolors`, as Oh My Zsh does; `~/.dircolors` is
+  read only if it is a regular file owned by the user running `el`. An eza
+  that fails to start is passed over for `/usr/local/bin/eza` or
+  `/usr/bin/eza`; with none left it runs `ls -lAh` and says why on stderr.
 - Vi-mode yanks (`y`, `yy`, `Y`) in zsh also copy to the first working
   clipboard: wl-copy, xclip, xsel, pbcopy, tmux, or OSC 52 on a terminal known
   to accept it.

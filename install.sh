@@ -108,6 +108,13 @@ mirror "$SRC/kitty"                  "$CONFIG/kitty"
 mirror "$SRC/tmux/tmux.conf"         "$CONFIG/tmux/tmux.conf"
 mirror "$SRC/fastfetch"              "$CONFIG/fastfetch"
 
+if [[ -f /usr/local/bin/el ]] && cmp -s "$SRC/bin/el" /usr/local/bin/el; then
+    echo "sudo el: /usr/local/bin/el matches bin/el"
+else
+    echo "sudo el needs a root-owned copy where sudo looks for commands; run:"
+    echo "  sudo install -m 0755 -o root -g root '$SRC/bin/el' /usr/local/bin/el"
+fi
+
 # Included, not linked, so ~/.gitconfig keeps the identity and its own entries
 # still override. The include is an absolute path into this checkout.
 if git config --global --get-all include.path 2>/dev/null | grep -qxF "$SRC/git/gitconfig"; then
