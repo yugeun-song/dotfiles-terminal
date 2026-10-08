@@ -99,6 +99,7 @@ mirror "$SRC/zsh/zshenv"             "$HOME/.zshenv"
 seed "$SRC/zsh/p10k.zsh"           "$HOME/.p10k.zsh"
 mirror "$SRC/zsh/zprofile"           "$HOME/.zprofile"
 mirror "$SRC/bash/bashrc"            "$HOME/.bashrc"
+mirror "$SRC/bin/el"                 "$HOME/.local/bin/el"
 mirror "$SRC/npm/npmrc"              "$HOME/.npmrc"
 # zshrc sources a literal ~/.config/zsh, so this ignores XDG_CONFIG_HOME.
 mirror "$SRC/zsh/config"             "$HOME/.config/zsh"

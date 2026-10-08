@@ -28,6 +28,14 @@ shopt -s cmdhist
 
 alias ls='ls --color=auto'
 alias grep='grep --color=auto'
+alias sudo='sudo '
+if [ -x "$HOME/.local/bin/el" ]; then
+    printf -v _el '%q/.local/bin/el' "$HOME"
+    alias el="$_el"
+    unset _el
+elif command -v eza >/dev/null 2>&1; then
+    alias el='eza --icons -al'
+fi
 PS1='[\u@\h \W]\$ '
 for _f in "${XDG_CONFIG_HOME:-$HOME/.config}"/profile.d/*.sh; do
     [ -f "$_f" ] && [ -O "$_f" ] && [ -z "$(find "$_f" -maxdepth 0 -perm /022 2>/dev/null)" ] && . "$_f"

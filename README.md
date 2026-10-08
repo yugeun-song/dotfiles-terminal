@@ -9,6 +9,7 @@ Machine independent; every path is relative to `$HOME`.
 zsh/          zshrc, zshenv, zprofile, p10k.zsh (prompt), config/caps-lock.zsh
 bash/         bashrc, for shells that are not zsh
 shell/        man.sh, man page settings sourced by both shells
+bin/          el, eza's long listing as a script that sudo can run
 git/          shared git settings, no identity
 kitty/        kitty.conf, spaceduck palette, search kitten (search.py + scroll_mark.py)
 tmux/         tmux.conf
@@ -28,10 +29,11 @@ bootstrap.sh  clones what is not a file here, sets the login shell
 `install.sh` copies; it creates no symlinks.
 
 - **Mirrored** (overwritten on every run): zshrc, zshenv, zprofile, bashrc,
-  npmrc into `~`; `zsh/config` into `~/.config/zsh`; `shell`, `kitty`,
-  `fastfetch` and `tmux/tmux.conf` into `$XDG_CONFIG_HOME`. Mirrored
-  directories lose files the repository no longer has. A symlink left by an
-  older install is replaced. Edit here, then re-run.
+  npmrc into `~`; `bin/el` into `~/.local/bin`; `zsh/config` into
+  `~/.config/zsh`; `shell`, `kitty`, `fastfetch` and `tmux/tmux.conf` into
+  `$XDG_CONFIG_HOME`. Mirrored directories lose files the repository no
+  longer has. A symlink left by an older install is replaced. Edit here, then
+  re-run.
 - **Seeded** (copied once): `zsh/p10k.zsh` to `~/.p10k.zsh`, because
   `p10k configure` rewrites it and would write through a link into the
   repository. A diverged copy is reported and left alone; copy it back here to
@@ -57,6 +59,15 @@ are fast-forwarded, never replaced.
   (dotfiles-desktop installs `node.sh`).
 - History is 500000 entries in both shells; bash also gets `histappend` so
   concurrent sessions do not overwrite each other.
+- `el` is `eza --icons -al`, installed as a script in `~/.local/bin` so that
+  sudo can run it. Both shells alias `sudo` to `sudo ` (the trailing space
+  expands the next word as an alias too) and `el` to the script's absolute
+  path, which sudo's `secure_path` would not find. Options between `sudo` and
+  `el` (`sudo -E el`) stop that expansion. Under sudo the script rebuilds a
+  dropped `LS_COLORS` the way Oh My Zsh does and reads the invoking user's eza
+  theme, so the listing looks the same. An eza that fails to start is passed
+  over for the invoking user's or `/usr/bin`'s; with none left it runs
+  `ls -lAh` and says why on stderr.
 - Vi-mode yanks (`y`, `yy`, `Y`) in zsh also copy to the first working
   clipboard: wl-copy, xclip, xsel, pbcopy, tmux, or OSC 52 on a terminal known
   to accept it.

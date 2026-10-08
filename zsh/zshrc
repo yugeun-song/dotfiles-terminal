@@ -147,7 +147,13 @@ alias peaclock-emerald='peaclock --config ~/.peaclock/config/color_emerald'
 
 alias unimatrix-safe='unimatrix -g black -c green -s 90 -a -n'
 
-alias el='eza --icons -al'
+alias sudo='sudo '
+if [[ -x $HOME/.local/bin/el ]]; then
+    alias el="${(q)HOME}/.local/bin/el"
+    (( $+_comps[eza] )) && compdef el=eza
+else
+    alias el='eza --icons -al'
+fi
 
 alias glow='glow -w $(tput cols)'
 

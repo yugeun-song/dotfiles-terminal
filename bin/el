@@ -1,0 +1,100 @@
+#!/bin/sh
+
+nl='
+'
+
+warn() {
+    printf 'el: %s\n' "$*" >&2
+}
+
+invoker_home() {
+    user=${SUDO_USER:-${DOAS_USER-}}
+    case $user in
+        '' | -* | *[!A-Za-z0-9._-]*) return 1 ;;
+    esac
+    dir=
+    eval "dir=~$user" 2>/dev/null || return 1
+    case $dir in
+        /*) [ -d "$dir" ] && printf '%s\n' "$dir" ;;
+        *) return 1 ;;
+    esac
+}
+
+tried=$nl
+reason=
+
+usable() {
+    [ -n "$1" ] || return 1
+    case $tried in
+        *"$nl$1$nl"*) return 1 ;;
+    esac
+    tried=$tried$1$nl
+    [ -f "$1" ] && [ -x "$1" ] || return 1
+    out=$("$1" --version 2>&1 >/dev/null)
+    code=$?
+    [ "$code" -eq 0 ] && return 0
+    [ -n "$reason" ] || reason=${out%%"$nl"*}
+    [ -n "$reason" ] || reason="$1 exited with status $code"
+    return 1
+}
+
+try_eza() {
+    usable "$1" || return 0
+    bin=$1
+    shift
+    exec "$bin" --icons -al "$@"
+}
+
+[ -n "${PATH-}" ] || PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+user_home=$(invoker_home) || user_home=
+[ "$user_home" = "${HOME-}" ] && user_home=
+rc_home=${user_home:-${HOME-}}
+
+if [ -z "${LS_COLORS-}" ] && command -v dircolors >/dev/null 2>&1; then
+    colors=
+    if [ -n "$rc_home" ] && [ -f "$rc_home/.dircolors" ] && [ -r "$rc_home/.dircolors" ]; then
+        colors=$(dircolors -b -- "$rc_home/.dircolors" 2>/dev/null) || colors=
+    fi
+    [ -n "$colors" ] || colors=$(dircolors -b 2>/dev/null) || colors=
+    [ -n "$colors" ] && eval "$colors"
+fi
+
+if [ -n "$user_home" ] && [ -z "${EZA_CONFIG_DIR-}" ]; then
+    for theme in "$user_home/.config/eza/theme.yml" "$user_home/.config/eza/theme.yaml"; do
+        if [ -f "$theme" ] && [ -r "$theme" ]; then
+            EZA_CONFIG_DIR=${theme%/*}
+            export EZA_CONFIG_DIR
+            break
+        fi
+    done
+fi
+
+try_eza "$(command -v eza 2>/dev/null)" "$@"
+if [ -n "$user_home" ]; then
+    try_eza "$user_home/.cargo/bin/eza" "$@"
+    try_eza "$user_home/.local/bin/eza" "$@"
+fi
+try_eza /usr/local/bin/eza "$@"
+try_eza /usr/bin/eza "$@"
+
+if [ -n "$reason" ]; then
+    warn "eza cannot run ($reason); falling back to ls"
+else
+    warn "eza not found; falling back to ls"
+fi
+
+if ! command -v ls >/dev/null 2>&1; then
+    warn "ls not found either"
+    exit 127
+fi
+
+if [ -n "${NO_COLOR+x}" ]; then
+    exec ls -lAh "$@"
+elif ls --color=auto -d / >/dev/null 2>&1; then
+    exec ls --color=auto -lAh "$@"
+elif ls -G -d / >/dev/null 2>&1; then
+    exec ls -G -lAh "$@"
+fi
+exec ls -lAh "$@"
