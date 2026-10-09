@@ -4,7 +4,7 @@
 
 # Before the guard: a non-interactive login bash reads this via ~/.bash_profile.
 # Same policy as zshenv: user bin directories go last, so pacman's copies win.
-for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin"; do
+for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin" "$HOME/.ghcup/bin"; do
     PATH=":$PATH:"
     PATH="${PATH//:"$_userbin":/:}"
     PATH="${PATH#:}"

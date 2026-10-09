@@ -5,11 +5,12 @@ export npm_config_prefix="$HOME/.local"
 # User-level bin dirs go last, so a name pacman owns always resolves to the
 # packaged copy (e.g. a `cargo install` duplicate of a repo binary cannot
 # shadow it). Cost: an override in ~/.local/bin no longer wins. ~/.cargo/env
-# is not sourced because it prepends. Here, not in zshrc, so scripts resolve
-# the same way. Each dir is removed first: `typeset -U` keeps the first
-# occurrence, so a dir a parent shell put in front would otherwise stay there.
+# and ~/.ghcup/env are not sourced because they prepend. Here, not in zshrc,
+# so scripts resolve the same way. Each dir is removed first: `typeset -U`
+# keeps the first occurrence, so a dir a parent shell put in front would
+# otherwise stay there.
 typeset -U path
-for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin"; do
+for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin" "$HOME/.ghcup/bin"; do
     path=("${(@)path:#$_userbin}")
     [[ -d $_userbin ]] && path+=("$_userbin")
 done

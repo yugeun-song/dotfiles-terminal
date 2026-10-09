@@ -59,9 +59,10 @@ are fast-forwarded, never replaced.
 
 ## Shell notes
 
-- `zshenv` and `bashrc` append `~/.local/bin`, `~/.cargo/bin` and `~/.elan/bin`
-  to PATH, so pacman-owned binaries always win over user-installed duplicates.
-  `~/.cargo/env` is not sourced; it only prepends.
+- `zshenv` and `bashrc` append `~/.local/bin`, `~/.cargo/bin`, `~/.elan/bin` and
+  `~/.ghcup/bin` to PATH, so pacman-owned binaries always win over
+  user-installed duplicates. `~/.cargo/env` and `~/.ghcup/env` are not sourced;
+  they only prepend.
 - Both shells source every `~/.config/profile.d/*.sh` owned by this user and
   not writable by group or others. Tools put their environment there
   (dotfiles-desktop installs `node.sh`).
