@@ -16,6 +16,7 @@ gdb/          presets.py and debug-max.gdb: stock pwndbg or the Linux Kernel pre
 kitty/        kitty.conf, spaceduck palette, search kitten (search.py + scroll_mark.py)
 tmux/         tmux.conf
 npm/          npmrc
+iex/          iex.exs: hex, oct and bin helpers, Bitwise imported
 fastfetch/    config.jsonc
 install.sh    places the files (below)
 bootstrap.sh  clones what is not a file here, sets the login shell
@@ -31,7 +32,7 @@ bootstrap.sh  clones what is not a file here, sets the login shell
 `install.sh` copies; it creates no symlinks.
 
 - **Mirrored** (overwritten on every run): zshrc, zshenv, zprofile, bashrc,
-  npmrc into `~`; `bin/el` into `~/.local/bin`; `zsh/config` into
+  npmrc and iex.exs into `~`; `bin/el` into `~/.local/bin`; `zsh/config` into
   `~/.config/zsh`; `shell`, `kitty`, `fastfetch` and `tmux/tmux.conf` into
   `$XDG_CONFIG_HOME`; the two files in `gdb/` into `$XDG_CONFIG_HOME/gdb`.
   Mirrored directories lose files the repository no longer has. A symlink
@@ -131,6 +132,12 @@ declines and says how to allow the path.
 
 pwndbg is sourced before anything imports gdb's Python package, so an Arch
 cross gdb whose package lags gdb-common still starts pwndbg.
+
+## iex
+
+`hex`, `oct` and `bin` print a number in that base and return it, so they
+nest in arithmetic. A project's own `.iex.exs` replaces this one unless it
+calls `import_file("~/.iex.exs")`.
 
 ## Requirements
 

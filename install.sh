@@ -102,6 +102,7 @@ mirror "$SRC/zsh/zprofile"           "$HOME/.zprofile"
 mirror "$SRC/bash/bashrc"            "$HOME/.bashrc"
 mirror "$SRC/bin/el"                 "$HOME/.local/bin/el"
 mirror "$SRC/npm/npmrc"              "$HOME/.npmrc"
+mirror "$SRC/iex/iex.exs"            "$HOME/.iex.exs"
 # zshrc sources a literal ~/.config/zsh, so this ignores XDG_CONFIG_HOME.
 mirror "$SRC/zsh/config"             "$HOME/.config/zsh"
 mirror "$SRC/shell"                  "$CONFIG/shell"
