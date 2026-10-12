@@ -16,6 +16,7 @@ gdb/          presets.py and debug-max.gdb: stock pwndbg or the Linux Kernel pre
 kitty/        kitty.conf, spaceduck palette, search kitten (search.py + scroll_mark.py)
 tmux/         tmux.conf
 npm/          npmrc
+node/         repl.js and node.sh: hex, oct and bin helpers in the node REPL
 iex/          iex.exs: hex, oct and bin helpers, Bitwise imported
 fastfetch/    config.jsonc
 install.sh    places the files (below)
@@ -34,7 +35,9 @@ bootstrap.sh  clones what is not a file here, sets the login shell
 - **Mirrored** (overwritten on every run): zshrc, zshenv, zprofile, bashrc,
   npmrc and iex.exs into `~`; `bin/el` into `~/.local/bin`; `zsh/config` into
   `~/.config/zsh`; `shell`, `kitty`, `fastfetch` and `tmux/tmux.conf` into
-  `$XDG_CONFIG_HOME`; the two files in `gdb/` into `$XDG_CONFIG_HOME/gdb`.
+  `$XDG_CONFIG_HOME`; the two files in `gdb/` into `$XDG_CONFIG_HOME/gdb`;
+  `node/repl.js` into `$XDG_CONFIG_HOME/node` and `node/node.sh` into
+  `$XDG_CONFIG_HOME/profile.d`.
   Mirrored directories lose files the repository no longer has. A symlink
   left by an older install is replaced. Edit here, then re-run.
 - **Seeded** (copied once): `zsh/p10k.zsh` to `~/.p10k.zsh`, because
@@ -65,8 +68,8 @@ are fast-forwarded, never replaced.
   user-installed duplicates. `~/.cargo/env` and `~/.ghcup/env` are not sourced;
   they only prepend.
 - Both shells source every `~/.config/profile.d/*.sh` owned by this user and
-  not writable by group or others. Tools put their environment there
-  (dotfiles-desktop installs `node.sh`).
+  not writable by group or others. Tools put their environment there, as
+  `node/node.sh` does.
 - History is 500000 entries in both shells; bash also gets `histappend` so
   concurrent sessions do not overwrite each other.
 - `el` is `eza --icons -al` as a script, `bin/el`, found through PATH. sudo
@@ -133,11 +136,16 @@ declines and says how to allow the path.
 pwndbg is sourced before anything imports gdb's Python package, so an Arch
 cross gdb whose package lags gdb-common still starts pwndbg.
 
-## iex
+## node and iex
 
 `hex`, `oct` and `bin` print a number in that base and return it, so they
 nest in arithmetic. A project's own `.iex.exs` replaces this one unless it
 calls `import_file("~/.iex.exs")`.
+
+In node they exist only in an interactive REPL. `node.sh` adds `--require`
+of `repl.js` to `NODE_OPTIONS`, and `repl.js` defines nothing under `-e`,
+`-p`, a script or a worker, nor over a global of the same name. A single
+character stands for its code point, so `hex("A")` is `0x41`.
 
 ## Requirements
 

@@ -103,6 +103,10 @@ mirror "$SRC/bash/bashrc"            "$HOME/.bashrc"
 mirror "$SRC/bin/el"                 "$HOME/.local/bin/el"
 mirror "$SRC/npm/npmrc"              "$HOME/.npmrc"
 mirror "$SRC/iex/iex.exs"            "$HOME/.iex.exs"
+# NODE_OPTIONS reaches every node, scripts included; repl.js defines nothing
+# outside an interactive REPL.
+mirror "$SRC/node/repl.js"           "$CONFIG/node/repl.js"
+mirror "$SRC/node/node.sh"           "$CONFIG/profile.d/node.sh"
 # zshrc sources a literal ~/.config/zsh, so this ignores XDG_CONFIG_HOME.
 mirror "$SRC/zsh/config"             "$HOME/.config/zsh"
 mirror "$SRC/shell"                  "$CONFIG/shell"
