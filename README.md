@@ -82,6 +82,9 @@ or stale:
 sudo install -m 0755 -o root -g root bin/el /usr/local/bin/el
 ```
 
+RHEL's default `secure_path` lacks `/usr/local/bin`; there, add it or call
+`sudo /usr/local/bin/el`. As root, `el` runs only the system's eza.
+
 ## Shell notes
 
 - `shell/path.sh` (from `zshenv`, `bashrc`, and `zprofile` again after a

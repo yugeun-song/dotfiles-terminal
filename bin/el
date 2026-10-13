@@ -37,7 +37,11 @@ try_eza() {
     exec "$bin" --icons -al "$@"
 }
 
-[ -n "${PATH-}" ] || PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# As root, the system's directories only: sudo can keep the invoking user's
+# PATH, whose ~/.cargo/bin eza would then run as root.
+if [ -z "${PATH-}" ] || [ "$(id -u)" -eq 0 ]; then
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+fi
 export PATH
 
 # sudo can drop LS_COLORS. Rebuild it as Oh My Zsh does, reading ~/.dircolors
