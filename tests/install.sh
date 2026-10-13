@@ -335,6 +335,30 @@ cp "$T/home/.gdbinit" "$T/gdbinit.before"
 run
 same "a debug-max block opened twice leaves the file" "$T/home/.gdbinit" "$T/gdbinit.before"
 
+# A checkout cloned under umask 002 installs nothing writable by others,
+# and --check names an installed file that is.
+setup
+find "$T/repo" -path "$T/repo/.git" -prune -o -type f -exec chmod g+w {} +
+run
+is "nothing installed is writable by others" "$(find "$T/home" -type f -perm /022 | wc -l)" 0
+chmod g+w "$T/home/.zshrc"
+run --check
+has "--check: an installed file writable by others" "$out" "writable by others: ~/.zshrc"
+run
+is "an update takes the write bit back" "$(stat -c %a "$T/home/.zshrc")" 644
+
+# An os-release whose last line has no newline.
+setup
+printf 'PRETTY_NAME="Arch Linux"\nID=arch' >"$T/os-release"
+run --check
+has "a last line without a newline is read" "$out" "✓ premise: Arch Linux (arch family)"
+
+# show-environment quotes a value with a space as $'...'.
+setup
+printf "XDG_CONFIG_HOME=\$'%s'\n" "$T/home/my config" >"$T/session-env"
+run_with XDG_CONFIG_HOME="$T/home/my config" -- --check
+lacks "a quoted session value equal to this shell's is no mismatch" "$out" "XDG_CONFIG_HOME differs"
+
 if (( failed )); then
     echo "FAIL  install: $failed of $((passed + failed)) checks"
     exit 1

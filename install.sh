@@ -24,6 +24,9 @@
 # replaces /usr/local/bin/el.
 
 set -Eeuo pipefail
+# Under a umask of 002 (Fedora's and Ubuntu's, for user private groups) the
+# directories made here would be group-writable; nothing here should be.
+umask 022
 
 usage() {
     cat <<'EOF'
@@ -156,7 +159,8 @@ tree_lines() {
 
 os_release_field() {
     local key=$1 file=$2 line value=""
-    while IFS= read -r line; do
+    # A last line without a newline still counts.
+    while IFS= read -r line || [[ -n $line ]]; do
         if [[ $line == "$key="* ]]; then
             value=${line#*=}
             value=${value#[\"\']}
@@ -266,6 +270,14 @@ check_premise() {
     # rest start from the session's environment, which the user manager holds.
     if command -v systemctl >/dev/null 2>&1 && session_env=$(systemctl --user show-environment 2>/dev/null); then
         session=$(awk '/^XDG_CONFIG_HOME=/ { sub(/^[^=]*=/, ""); print; exit }' <<<"$session_env")
+        # A value with a space or a special comes as $'...'; read raw it was
+        # taken for a relative path, and two equal settings were called
+        # different.
+        if [[ $session == "\$'"*"'" ]]; then
+            session=${session:2:-1}
+            session=${session//\\\'/\'}
+            session=$(printf '%b' "$session")
+        fi
         if [[ $session != /* ]]; then session=$HOME/.config; fi
         if [[ ${session%/} != "$CONFIG" ]]; then
             PROBLEMS+=("files would go to $(tilde "$CONFIG"), but the session's programs read $(tilde "${session%/}"): XDG_CONFIG_HOME differs between this shell and the systemd user manager")
@@ -406,7 +418,10 @@ write_file() {
     dir=$(dirname -- "$dst")
     mkdir -p -- "$dir" || stop "could not create $(tilde "$dir")"
     tmp=$dst.new-$$
-    if ! cp -a -- "$src" "$tmp"; then
+    # Never writable by group or others, whatever the checkout's mode: a
+    # clone under umask 002 gives 664, and both shells skip a profile.d file
+    # like that.
+    if ! { cp -a -- "$src" "$tmp" && chmod go-w -- "$tmp"; }; then
         rm -f -- "$tmp"
         stop "could not write $(tilde "$dst")"
     fi
@@ -460,6 +475,11 @@ mirror_file() {
     [[ -f $src ]] || stop "the source $rel is missing from the checkout"
     if [[ -d $dst && ! -L $dst ]]; then stop "$(tilde "$dst") is a directory where $rel should go"; fi
     if [[ -e $dst ]] && ! old_link "$dst" && cmp -s -- "$src" "$dst"; then
+        if [[ -f $dst && ! -L $dst && -n $(find "$dst" -maxdepth 0 -perm /022 2>/dev/null) ]]; then
+            if [[ $MODE == check ]]; then todo "${YELLOW}writable by others: $name$RESET"; return 0; fi
+            chmod go-w -- "$dst" || stop "could not change the mode of $(tilde "$dst")"
+            branch "$GREEN✓$RESET $name is no longer writable by others"
+        fi
         if [[ $MODE == install ]]; then remember "$dst"; fi
         UNCHANGED=$((UNCHANGED + 1))
         GROUP_SAME=$((GROUP_SAME + 1))
