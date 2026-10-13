@@ -304,6 +304,37 @@ has "the title is bold cyan" "$out" "$esc""1m$esc""36mdotfiles-terminal"
 coloured --check
 has "--check is coloured too" "$out" "$esc""32m✓$esc""0m everything installed is current"
 
+# ---- fixes from the 2026-10-14 review ----
+# A pwndbg source line inside a define runs with it and stays there; one at
+# the top level moves into the presets block.
+setup
+mkdir -p "$T/home/pwndbg" && : >"$T/home/pwndbg/gdbinit.py"
+printf 'define init-pwndbg\n  source %s/pwndbg/gdbinit.py\nend\nset pagination off\n' "$T/home" >"$T/home/.gdbinit"
+run
+is "a pwndbg line inside a define stays in it" "$(sed -n '/^define init-pwndbg$/,/^end$/p' "$T/home/.gdbinit")" \
+    "$(printf 'define init-pwndbg\n  source %s/pwndbg/gdbinit.py\nend' "$T/home")"
+lacks "and nothing says it moved" "$out" "its own pwndbg source line moved"
+setup
+mkdir -p "$T/home/pwndbg" && : >"$T/home/pwndbg/gdbinit.py"
+printf 'source %s/pwndbg/gdbinit.py\nset pagination off\n' "$T/home" >"$T/home/.gdbinit"
+run
+lacks "a top-level pwndbg line moves" "$(sed -n '/<<< dotfiles-terminal gdb presets <<</,$p' "$T/home/.gdbinit")" "pwndbg/gdbinit.py"
+has "and says so" "$out" "its own pwndbg source line moved into the block"
+
+# Markers out of order or unclosed: the file stays as it is, with a note,
+# not cut at the first marker.
+setup
+printf '# <<< dotfiles-terminal gdb presets <<<\nset history save on\n# >>> dotfiles-terminal gdb presets >>>\nset pagination off\n' >"$T/home/.gdbinit"
+cp "$T/home/.gdbinit" "$T/gdbinit.before"
+run
+same "an end marker before its begin leaves the file" "$T/home/.gdbinit" "$T/gdbinit.before"
+has "and says why" "$out" "marker out of order or unclosed, so it was left alone"
+setup
+printf '# ===== debug-max (managed) =====\nset a 1\n# ===== debug-max (managed) =====\nset b 2\n# ===== end debug-max =====\ndefine keep\nend\n' >"$T/home/.gdbinit"
+cp "$T/home/.gdbinit" "$T/gdbinit.before"
+run
+same "a debug-max block opened twice leaves the file" "$T/home/.gdbinit" "$T/gdbinit.before"
+
 if (( failed )); then
     echo "FAIL  install: $failed of $((passed + failed)) checks"
     exit 1

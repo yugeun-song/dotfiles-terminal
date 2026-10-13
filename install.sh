@@ -563,9 +563,43 @@ ensure_executable() {
 # its top records where pwndbg's gdbinit.py is and sources presets.py. A raw
 # pwndbg source line (pwndbg's setup.sh appends one) moves into the block and
 # the inline debug-max block that predates gdb/debug-max.gdb is dropped.
-# Other blocks stay; a symlinked init file or unpaired markers are left alone.
+# Other blocks stay; a symlinked init file or markers out of order are left
+# alone.
+#
+# The scan counts the blocks gdb closes with "end": a source line inside one
+# (define init-pwndbg ... end) runs with its block and stays in it. The
+# bodies of python, guile and document are not gdb commands, so nothing in
+# them opens a block. Rewriting, it exits 3 on a marker out of order or
+# unclosed instead of dropping everything after it.
+# shellcheck disable=SC2016 # an awk program: its $0 is awk's
+GDB_SCAN='
+function track(line) {
+    if (text) {
+        if (line ~ /^[[:space:]]*end[[:space:]]*$/) { text = 0; depth-- }
+        return
+    }
+    if (line ~ /^[[:space:]]*end[[:space:]]*$/) { if (depth > 0) depth--; return }
+    if (line ~ /^[[:space:]]*(python|guile)[[:space:]]*$/ || line ~ /^[[:space:]]*document([[:space:]]|$)/) { text = 1; depth++; return }
+    if (line ~ /^[[:space:]]*(define|if|while|commands)([[:space:]]|$)/) depth++
+}
+mode == "find" {
+    if (depth == 0 && $0 ~ pw_line) { print; exit }
+    track($0)
+    next
+}
+$0 == begin { if (ours) bad = 1; ours = 1; next }
+ours { if ($0 == end) ours = 0; next }
+$0 == end { bad = 1 }
+dbg_ok && $0 ~ dbg_begin { if (dbg) bad = 1; dbg = 1; next }
+dbg { if ($0 ~ dbg_end) dbg = 0; next }
+depth == 0 && $0 ~ pw_line { next }
+{ track($0) }
+!started && /^[[:space:]]*$/ { next }
+{ if (!started) { print ""; started = 1 } print }
+END { if (mode != "find" && (ours || dbg || bad)) exit 3 }
+'
 gdb_presets() {
-    local help init raw recorded pwndbg="" candidate block new tmp
+    local help init raw recorded pwndbg="" candidate block new tmp status=0
     local -a candidates=()
     local begin="# >>> dotfiles-terminal gdb presets >>>"
     local end="# <<< dotfiles-terminal gdb presets <<<"
@@ -593,7 +627,7 @@ gdb_presets() {
                 NOTES+=("$(tilde "$init") has a debug-max block without its end marker; that block stays")
             fi
         fi
-        raw=$(grep -m 1 -E -- "$pw_line" "$init" || :)
+        raw=$(awk -v mode=find -v pw_line="$pw_line" "$GDB_SCAN" "$init" || :)
         if [[ -n $raw ]]; then
             moved=1
             raw=$(sed -E 's/^[[:space:]]*source[[:space:]]+//; s/[[:space:]]+$//' <<<"$raw")
@@ -628,18 +662,17 @@ gdb_presets() {
     {
         printf '%s\n' "$block"
         if [[ -f $init ]]; then
-            awk -v begin="$begin" -v end="$end" -v dbg_ok="$dbg_ok" \
-                -v dbg_begin="$dbg_begin" -v dbg_end="$dbg_end" -v pw_line="$pw_line" '
-                $0 == begin { ours = 1; next }
-                ours { if ($0 == end) ours = 0; next }
-                dbg_ok && $0 ~ dbg_begin { dbg = 1; next }
-                dbg { if ($0 ~ dbg_end) dbg = 0; next }
-                $0 ~ pw_line { next }
-                !started && /^[[:space:]]*$/ { next }
-                { if (!started) { print ""; started = 1 } print }
-            ' "$init"
+            awk -v mode=rewrite -v begin="$begin" -v end="$end" -v dbg_ok="$dbg_ok" \
+                -v dbg_begin="$dbg_begin" -v dbg_end="$dbg_end" -v pw_line="$pw_line" \
+                "$GDB_SCAN" "$init" || status=$?
         fi
     } >"$new"
+    if (( status == 3 )); then
+        NOTES+=("$(tilde "$init") has a gdb presets or debug-max marker out of order or unclosed, so it was left alone")
+        return 0
+    elif (( status )); then
+        stop "could not read $(tilde "$init")"
+    fi
     if [[ -f $init ]] && cmp -s -- "$new" "$init"; then
         UNCHANGED=$((UNCHANGED + 1))
         GROUP_SAME=$((GROUP_SAME + 1))
