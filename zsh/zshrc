@@ -13,7 +13,12 @@ plugins=(
     zsh-autosuggestions
 )
 
-source $ZSH/oh-my-zsh.sh
+# Without it (bootstrap.sh not run yet) the shell still starts, plain.
+if [[ -r $ZSH/oh-my-zsh.sh ]]; then
+    source $ZSH/oh-my-zsh.sh
+else
+    print -u2 "zshrc: no Oh My Zsh in $ZSH; run bootstrap.sh from dotfiles-terminal"
+fi
 
 # After oh-my-zsh.sh, whose 10000 cap silently evicts old entries. Loading
 # 500000 is slower, but the instant prompt hides it.
@@ -163,7 +168,7 @@ nvim() {
   fi
 }
 
-[[ ! -f ~/.config/zsh/caps-lock.zsh ]] || source ~/.config/zsh/caps-lock.zsh
+[[ ! -f ${XDG_CONFIG_HOME:-$HOME/.config}/zsh/caps-lock.zsh ]] || source ${XDG_CONFIG_HOME:-$HOME/.config}/zsh/caps-lock.zsh
 
 # debug-max (managed): maximum-visibility debugging helpers
 [ -f "$HOME/.config/debug-max/debug-max.sh" ] && . "$HOME/.config/debug-max/debug-max.sh"
