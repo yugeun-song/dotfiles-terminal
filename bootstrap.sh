@@ -5,10 +5,18 @@
 # the login shell. Re-runnable: existing clones are fast-forwarded, not replaced.
 set -uo pipefail
 
-ZSH_DIR="${ZSH:-$HOME/.oh-my-zsh}"
-CUSTOM="$ZSH_DIR/custom"
+case ${1:-} in
+    "") ;;
+    -h|--help) echo "usage: ./bootstrap.sh   (no options; reaches the network and runs sudo chsh)"; exit 0 ;;
+    *) echo "usage: ./bootstrap.sh   (no options)" >&2; exit 2 ;;
+esac
 
-# Only chsh needs root; the keepalive stops sudo from timing out mid-run.
+# Where zshrc looks: it pins ZSH, and Oh My Zsh itself honours ZSH_CUSTOM.
+ZSH_DIR=$HOME/.oh-my-zsh
+CUSTOM=${ZSH_CUSTOM:-$ZSH_DIR/custom}
+USER_NAME=${USER:-$(id -un)}
+
+# Only chsh needs root; the keepalive stops sudo timing out mid-run.
 sudo_keepalive=
 acquire_sudo() {
     [[ $EUID -eq 0 ]] && return 0
@@ -78,10 +86,19 @@ if [[ -d "$NVIM_SRC/.git" ]]; then
 elif [[ -e "$NVIM_SRC" || -e "$NVIM_LINK" ]]; then
     echo "an nvim configuration is already in place; leaving it alone"
 elif [[ -n "${NVIM_CONFIG_URL:-}" ]] || { command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; }; then
-    url="${NVIM_CONFIG_URL:-https://github.com/$(gh api user --jq '.login')/nvim-config.git}"
-    echo "cloning nvim configuration from $url"
-    mkdir -p "$(dirname "$NVIM_SRC")"
-    git clone --quiet "$url" "$NVIM_SRC" || { echo "  clone failed" >&2; fail=1; }
+    url=${NVIM_CONFIG_URL:-}
+    if [[ -z $url ]]; then
+        login=$(gh api user --jq '.login' 2>/dev/null) || login=""
+        [[ -n $login ]] && url="https://github.com/$login/nvim-config.git"
+    fi
+    if [[ -z $url ]]; then
+        echo "gh is logged in but did not name the account; set NVIM_CONFIG_URL" >&2
+        fail=1
+    else
+        echo "cloning nvim configuration from $url"
+        mkdir -p "$(dirname "$NVIM_SRC")"
+        git clone --quiet "$url" "$NVIM_SRC" || { echo "  clone failed" >&2; fail=1; }
+    fi
 else
     echo "no nvim configuration and no way to find one; set NVIM_CONFIG_URL" >&2
 fi
@@ -92,7 +109,7 @@ fi
 
 # A fresh account gets bash; zshrc only applies once zsh is the login shell.
 ZSH_BIN="$(command -v zsh || true)"
-CURRENT_SHELL="$(getent passwd "$USER" | cut -d: -f7)"
+CURRENT_SHELL="$(getent passwd "$USER_NAME" | cut -d: -f7)"
 
 if [[ -z "$ZSH_BIN" ]]; then
     echo "zsh is not installed, so the login shell was left as $CURRENT_SHELL" >&2
@@ -104,11 +121,11 @@ elif ! grep -qxF "$ZSH_BIN" /etc/shells 2>/dev/null; then
     echo "$ZSH_BIN is missing from /etc/shells, so the login shell was not changed" >&2
     echo "  echo $ZSH_BIN | sudo tee -a /etc/shells" >&2
     fail=1
-elif acquire_sudo && sudo chsh -s "$ZSH_BIN" "$USER"; then
+elif acquire_sudo && sudo chsh -s "$ZSH_BIN" "$USER_NAME"; then
     echo "login shell: $CURRENT_SHELL -> $ZSH_BIN (takes effect at the next login)"
 else
     echo "could not change the login shell; it is still $CURRENT_SHELL" >&2
-    echo "  sudo chsh -s $ZSH_BIN $USER" >&2
+    echo "  sudo chsh -s $ZSH_BIN $USER_NAME" >&2
     fail=1
 fi
 
@@ -117,4 +134,4 @@ if (( fail )); then
     echo "finished with problems; see the messages above" >&2
     exit 1
 fi
-echo "shell environment ready"
+echo "shell environment ready; now run ./install.sh"
