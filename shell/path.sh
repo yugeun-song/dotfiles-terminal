@@ -8,20 +8,30 @@
 # /etc/profile after zshenv (Arch's /etc/zsh/zprofile does), which appended
 # rustup's, the JRE's and perl's directories behind these, so the packages
 # lost to them there.
+#
+# PATH is rebuilt entry by entry. A loop that replaced ":dir:" until it was
+# gone never ended in a zsh whose PATH had typeset -U, and it missed "dir/".
+# An empty entry, which means the current directory, is dropped on the way.
 # shellcheck shell=bash
-for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin" "$HOME/.ghcup/bin"; do
-    while :; do
-        case ":$PATH:" in
-            *":$_userbin:"*)
-                PATH=":$PATH:"
-                PATH="${PATH//:"$_userbin":/:}"
-                PATH="${PATH#:}"
-                PATH="${PATH%:}"
-                ;;
-            *) break ;;
-        esac
+_path_user() {
+    for _u in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin" "$HOME/.ghcup/bin"; do
+        [ "${1%/}" = "$_u" ] && return 0
     done
-    [ -d "$_userbin" ] && PATH="${PATH:+$PATH:}$_userbin"
+    return 1
+}
+_path_new=
+_path_rest=$PATH:
+while [ -n "$_path_rest" ]; do
+    _path_dir=${_path_rest%%:*}
+    _path_rest=${_path_rest#*:}
+    [ -n "$_path_dir" ] || continue
+    _path_user "$_path_dir" && continue
+    _path_new=${_path_new:+$_path_new:}$_path_dir
 done
-unset _userbin
+for _u in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin" "$HOME/.ghcup/bin"; do
+    [ -d "$_u" ] && _path_new=${_path_new:+$_path_new:}$_u
+done
+PATH=$_path_new
+unset _path_new _path_rest _path_dir _u
+unset -f _path_user
 export PATH

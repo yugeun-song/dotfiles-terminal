@@ -88,7 +88,8 @@ sudo install -m 0755 -o root -g root bin/el /usr/local/bin/el
   login shell's `/etc/profile`) puts `~/.local/bin`, `~/.cargo/bin`,
   `~/.elan/bin` and `~/.ghcup/bin` last in PATH, so the distribution's
   binaries win over user-installed duplicates; `~/.cargo/env` and
-  `~/.ghcup/env` prepend and are not sourced.
+  `~/.ghcup/env` prepend and are not sourced. It drops empty entries (the
+  current directory).
 - Both shells source the `~/.config/profile.d/*.sh` files this user owns and
   others cannot write; `node/node.sh` goes there.
 - History holds 500000 entries in both shells; bash appends, so concurrent
