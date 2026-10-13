@@ -126,10 +126,10 @@ nvim and VS Code get the same rule:
 
 pwndbg sets `auto-load safe-path` to `/`, which would run any `.gdbinit` in
 the working directory and any `*-gdb.py` beside a loaded file; `presets.py`
-puts back the value in force before it, and the kbuildlab block after it adds
-the kernel tree, so `lx-*` still loads there. pwndbg is sourced before anything
-imports gdb's Python package, so an Arch cross gdb whose package lags
-gdb-common still starts it.
+puts back the value in force before it. `kbuildlab attach` adds the kernel
+tree with `-iex`, which gdb runs after the init file, so `lx-*` still loads
+there. pwndbg is sourced before anything imports gdb's Python package, so an
+Arch cross gdb whose package lags gdb-common still starts it.
 
 ## node and IEx
 
