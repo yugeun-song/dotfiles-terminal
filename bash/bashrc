@@ -38,7 +38,7 @@ for _f in "${XDG_CONFIG_HOME:-$HOME/.config}"/profile.d/*.sh; do
 done
 unset _f
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh"
-[ -r $HOME/.config/byobu/prompt ] && . $HOME/.config/byobu/prompt   #byobu-prompt#
+[ -r "$HOME/.config/byobu/prompt" ] && . "$HOME/.config/byobu/prompt"   #byobu-prompt#
 
 # debug-max (managed): maximum-visibility debugging helpers
 [ -f "$HOME/.config/debug-max/debug-max.sh" ] && . "$HOME/.config/debug-max/debug-max.sh"
