@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Once on a fresh machine, before ./install.sh: clones what zshrc needs but
 # this repository does not carry (Oh My Zsh, with powerlevel10k and two
-# plugins in its custom directory, since Oh My Zsh does not load the Arch
-# packages' copies from /usr/share), clones the nvim configuration and makes
-# zsh the login shell. Re-runnable: existing clones are fast-forwarded.
+# plugins in its custom directory, since Oh My Zsh does not load the
+# distribution packages' copies from /usr/share), clones the nvim
+# configuration and makes zsh the login shell. Re-runnable: existing clones
+# are fast-forwarded.
 set -uo pipefail
 
 case ${1:-} in
     "") ;;
-    -h|--help) echo "usage: ./bootstrap.sh   (no options; reaches the network and runs sudo chsh)"; exit 0 ;;
+    -h|--help) echo "usage: ./bootstrap.sh   (no options; reaches the network and runs sudo chsh or usermod)"; exit 0 ;;
     *) echo "usage: ./bootstrap.sh   (no options)" >&2; exit 2 ;;
 esac
 
@@ -17,7 +18,8 @@ ZSH_DIR=$HOME/.oh-my-zsh
 CUSTOM=${ZSH_CUSTOM:-$ZSH_DIR/custom}
 USER_NAME=${USER:-$(id -un)}
 
-# Only chsh needs root; the keepalive stops sudo timing out mid-run.
+# Only changing the login shell needs root; the keepalive stops sudo timing
+# out mid-run.
 sudo_keepalive=
 acquire_sudo() {
     [[ $EUID -eq 0 ]] && return 0
@@ -112,6 +114,13 @@ fi
 # A fresh account gets bash; zshrc only applies once zsh is the login shell.
 ZSH_BIN="$(command -v zsh || true)"
 CURRENT_SHELL="$(getent passwd "$USER_NAME" | cut -d: -f7)"
+# Fedora and RHEL put chsh in util-linux-user, which minimal installs lack;
+# shadow's usermod is there (Alpine has neither until shadow is installed).
+if command -v chsh >/dev/null 2>&1; then
+    set_shell=(chsh -s "$ZSH_BIN" "$USER_NAME")
+else
+    set_shell=(usermod --shell "$ZSH_BIN" "$USER_NAME")
+fi
 
 if [[ -z "$ZSH_BIN" ]]; then
     echo "zsh is not installed, so the login shell was left as $CURRENT_SHELL" >&2
@@ -119,15 +128,16 @@ if [[ -z "$ZSH_BIN" ]]; then
 elif [[ "$CURRENT_SHELL" == "$ZSH_BIN" ]]; then
     echo "login shell: already $ZSH_BIN"
 elif ! grep -qxF "$ZSH_BIN" /etc/shells 2>/dev/null; then
-    # chsh refuses an unlisted shell without saying why.
+    # chsh refuses an unlisted shell without saying why, and login services
+    # check the list too.
     echo "$ZSH_BIN is missing from /etc/shells, so the login shell was not changed" >&2
     echo "  echo $ZSH_BIN | sudo tee -a /etc/shells" >&2
     fail=1
-elif acquire_sudo && sudo chsh -s "$ZSH_BIN" "$USER_NAME"; then
+elif acquire_sudo && sudo "${set_shell[@]}"; then
     echo "login shell: $CURRENT_SHELL -> $ZSH_BIN (takes effect at the next login)"
 else
     echo "could not change the login shell; it is still $CURRENT_SHELL" >&2
-    echo "  sudo chsh -s $ZSH_BIN $USER_NAME" >&2
+    echo "  sudo ${set_shell[*]}" >&2
     fail=1
 fi
 

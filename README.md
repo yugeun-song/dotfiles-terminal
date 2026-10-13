@@ -45,7 +45,9 @@ tests/        run.sh: static checks, the fzf lookup, the installer suite
 ```
 
 Each step prints a tree of what it wrote (✓) or found in conflict (✗), in
-colour on a terminal unless `NO_COLOR` is set.
+colour on a terminal unless `NO_COLOR` is set. `bootstrap.sh` sets the login
+shell with `chsh`, or `usermod` where `chsh` is missing (Fedora and RHEL ship
+it in `util-linux-user`).
 
 Files are copied, never linked. **Mirrored** files are overwritten on every
 run: the shell files into `~`, `bin/el` into `~/.local/bin`, the rest under
