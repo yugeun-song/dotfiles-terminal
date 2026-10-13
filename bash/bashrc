@@ -1,14 +1,7 @@
-# Before the guard: a non-interactive login bash reads this through Arch's
-# ~/.bash_profile. Same policy as zshenv: user bin directories go last.
-for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin" "$HOME/.ghcup/bin"; do
-    PATH=":$PATH:"
-    PATH="${PATH//:"$_userbin":/:}"
-    PATH="${PATH#:}"
-    PATH="${PATH%:}"
-    [ -d "$_userbin" ] && PATH="${PATH:+$PATH:}$_userbin"
-done
-unset _userbin
-export PATH
+# Before the guard: a non-interactive login bash reads this too, through the
+# ~/.bash_profile from /etc/skel (~/.profile on Debian). User bin directories
+# last, as in zsh (shell/path.sh).
+[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/path.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/path.sh"
 
 [[ $- != *i* ]] && return
 

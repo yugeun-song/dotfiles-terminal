@@ -13,24 +13,26 @@ fail() { echo "FAIL  $*"; failed=1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 if have shellcheck; then
-    # The zsh files are not shellcheck's. SC1090 and SC1091: bashrc sources
-    # files that exist only at run time.
+    # The zsh files are not shellcheck's; shell/path.sh, which zsh sources
+    # too, is checked as bash here and parsed by zsh below. SC1090 and SC1091:
+    # bashrc sources files that exist only at run time.
     out=$( {
         shellcheck -x install.sh bootstrap.sh bin/el node/node.sh tests/run.sh tests/install.sh
         shellcheck -s sh shell/man.sh
+        shellcheck shell/path.sh
         shellcheck -s bash -e SC1090,SC1091 bash/bashrc
     } 2>&1 )
-    if [[ -z $out ]]; then echo "PASS  shellcheck: 8 scripts"; else fail "shellcheck:"; echo "$out" | head -40; fi
+    if [[ -z $out ]]; then echo "PASS  shellcheck: 9 scripts"; else fail "shellcheck:"; echo "$out" | head -40; fi
 else
     echo "SKIP  shellcheck: not installed"
 fi
 
 if have zsh; then
     bad=0
-    for f in zsh/zshrc zsh/zshenv zsh/zprofile zsh/config/caps-lock.zsh zsh/p10k.zsh; do
+    for f in zsh/zshrc zsh/zshenv zsh/zprofile zsh/config/caps-lock.zsh zsh/p10k.zsh shell/path.sh; do
         zsh -n "$f" || bad=1
     done
-    if (( bad )); then fail "zsh syntax"; else echo "PASS  zsh syntax: 5 files"; fi
+    if (( bad )); then fail "zsh syntax"; else echo "PASS  zsh syntax: 6 files"; fi
 else
     echo "SKIP  zsh syntax: zsh is not installed"
 fi

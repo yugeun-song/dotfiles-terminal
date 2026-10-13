@@ -21,7 +21,7 @@ closing doctor line when missing, and each feature does without its tool.
 ```
 zsh/          zshrc, zshenv, zprofile, p10k.zsh (the prompt), config/caps-lock.zsh
 bash/         bashrc, for rescue shells and containers
-shell/        man.sh, man page settings for both shells
+shell/        path.sh (PATH order) and man.sh (man page settings), for both shells
 bin/          el: eza's long listing as a script sudo can run
 kitty/        kitty.conf, the spaceduck palette, the scrollback search kitten
 tmux/ npm/ fastfetch/ git/ gdb/ node/ iex/
@@ -74,9 +74,11 @@ sudo install -m 0755 -o root -g root bin/el /usr/local/bin/el
 
 ## Shell notes
 
-- `zshenv` and `bashrc` append `~/.local/bin`, `~/.cargo/bin`, `~/.elan/bin`
-  and `~/.ghcup/bin` to PATH, so pacman's binaries win over user-installed
-  duplicates; `~/.cargo/env` and `~/.ghcup/env` prepend and are not sourced.
+- `shell/path.sh` (from `zshenv`, `bashrc`, and `zprofile` again after a
+  login shell's `/etc/profile`) puts `~/.local/bin`, `~/.cargo/bin`,
+  `~/.elan/bin` and `~/.ghcup/bin` last in PATH, so the distribution's
+  binaries win over user-installed duplicates; `~/.cargo/env` and
+  `~/.ghcup/env` prepend and are not sourced.
 - Both shells source the `~/.config/profile.d/*.sh` files this user owns and
   others cannot write; `node/node.sh` goes there.
 - History holds 500000 entries in both shells; bash appends, so concurrent

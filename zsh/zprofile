@@ -1,1 +1,4 @@
-# PATH lives in zshenv so every shell, login or not, resolves commands alike.
+# PATH is set in zshenv so every shell resolves commands alike. A login shell
+# then reads /etc/profile, which appends rustup's, the JRE's and perl's
+# directories behind the user's: put the user's last again.
+[[ -r ${XDG_CONFIG_HOME:-$HOME/.config}/shell/path.sh ]] && . ${XDG_CONFIG_HOME:-$HOME/.config}/shell/path.sh
