@@ -8,13 +8,16 @@ is installed by both.
 
 ## Premise
 
-Arch Linux or a derivative, zsh with Oh My Zsh, powerlevel10k and its two
-plugins, kitty, nvim and git. Paths follow Arch's packages (fzf's key
-bindings in `/usr/share/fzf`, pwndbg in `/usr/share/pwndbg`). `install.sh`
-checks the premise first and writes nothing when it is not met. Within it,
-the files adapt to the machine; optional tools (eza, fzf, tmux, wl-copy,
-gdb, pwndbg, node, IEx, fastfetch, gh, the two fonts) are listed by the
-closing doctor line when missing, and each feature does without its tool.
+A recognised distribution with GNU coreutils, zsh with Oh My Zsh,
+powerlevel10k and its two plugins, kitty, nvim and git. Arch is tested. Its
+derivatives and Debian/Ubuntu, Fedora/RHEL, openSUSE, Void, Gentoo and
+Alpine (derivatives known by `ID_LIKE`) are recognised but untested: a
+missing program is named with that package manager's command. `install.sh`
+checks the premise first and writes nothing when it is not met, an
+unrecognised distribution included. Within it, the files adapt: pwndbg comes
+from `~/pwndbg` or `/usr/share/pwndbg`. Optional tools (eza, fzf, tmux,
+wl-copy, gdb, pwndbg, node, IEx, fastfetch, gh, the two fonts) are listed by
+the closing doctor line when missing; each feature does without its tool.
 
 ## Layout
 
@@ -38,6 +41,9 @@ tests/        tests/run.sh: static checks and the installer suite
 ./install.sh --check    # what is behind or conflicting; writes nothing
 ./install.sh --force    # overwrite conflicts without asking
 ```
+
+Each step prints a tree of what it wrote (✓) or found in conflict (✗), in
+colour on a terminal unless `NO_COLOR` is set.
 
 Files are copied, never linked. **Mirrored** files are overwritten on every
 run: the shell files into `~`, `bin/el` into `~/.local/bin`, the rest under

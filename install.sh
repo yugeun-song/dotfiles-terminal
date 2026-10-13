@@ -9,10 +9,12 @@
 # Exit status: 0 everything applied and current; 1 stopped, or applied with a
 # step left undone (named in the summary); 2 usage.
 #
-# Premise: Arch Linux or a derivative, zsh with Oh My Zsh, powerlevel10k and
-# its two plugins (./bootstrap.sh), kitty, nvim and git. When one is missing,
-# or the session would read these files from somewhere else, nothing is
-# written: a half-applied shell setup is worse than none.
+# Premise: a distribution this script recognises (Arch is the one tested;
+# Debian/Ubuntu, Fedora/RHEL, openSUSE, Void, Gentoo and Alpine are known by
+# their package managers), GNU coreutils, zsh with Oh My Zsh, powerlevel10k
+# and its two plugins (./bootstrap.sh), kitty, nvim and git. When one is
+# missing, or the session would read these files from somewhere else, nothing
+# is written: a half-applied shell setup is worse than none.
 #
 # Files are copied, never linked, so an installed path never resolves back
 # into the checkout. A target holding content this repository did not install
@@ -69,10 +71,12 @@ MANIFEST_FILE=$STATE/installed
 OMZ=$HOME/.oh-my-zsh
 OMZ_CUSTOM=${ZSH_CUSTOM:-$OMZ/custom}
 
+# Colour only for a terminal, and never when NO_COLOR asks for none. The
+# glyphs (a check, a cross, tree lines) stay either way: they carry meaning.
 if [[ -t 1 && -z ${NO_COLOR:-} ]]; then
-    RED=$'\e[31m' GREEN=$'\e[32m' CYAN=$'\e[36m' BOLD=$'\e[1m' DIM=$'\e[2m' RESET=$'\e[0m'
+    RED=$'\e[31m' GREEN=$'\e[32m' YELLOW=$'\e[33m' CYAN=$'\e[36m' BOLD=$'\e[1m' DIM=$'\e[2m' RESET=$'\e[0m'
 else
-    RED='' GREEN='' CYAN='' BOLD='' DIM='' RESET=''
+    RED='' GREEN='' YELLOW='' CYAN='' BOLD='' DIM='' RESET=''
 fi
 
 HAVE_GIT=0
@@ -93,6 +97,60 @@ STEP=0
 FINISHING=0
 NO_PWNDBG=0
 WORK=""
+FAMILY="" PRETTY=""
+CONFLICTED=0
+
+# ---- output --------------------------------------------------------------
+
+# $HOME as ~, so a line names the path a user would type.
+tilde() {
+    if [[ $1 == "$HOME" || $1 == "$HOME"/* ]]; then printf '~%s' "${1#"$HOME"}"; else printf '%s' "$1"; fi
+}
+
+# Each step is a tree: its label once there is something to say, one branch
+# per change, and a last branch with the count. A step with nothing to say is
+# one dim line.
+GROUP_LABEL="" GROUP_SHOWN=0 GROUP_WROTE=0 GROUP_SAME=0 GROUP_TODO=0
+group_open() {
+    GROUP_LABEL=$1 GROUP_SHOWN=0 GROUP_WROTE=0 GROUP_SAME=0 GROUP_TODO=0
+}
+group_label() {
+    (( GROUP_SHOWN )) && return 0
+    printf '%s%s%s\n' "$BOLD" "$GROUP_LABEL" "$RESET"
+    GROUP_SHOWN=1
+}
+branch() {
+    group_label
+    printf '%s├──%s %s\n' "$DIM" "$RESET" "$1"
+}
+group_close() {
+    local tally
+    if [[ $MODE == check ]]; then
+        if (( GROUP_TODO )); then tally="$GROUP_TODO to apply"; else tally=current; fi
+    elif (( GROUP_WROTE )); then
+        tally="$GROUP_WROTE written, $GROUP_SAME unchanged"
+    else
+        tally="$GROUP_SAME unchanged"
+    fi
+    if (( GROUP_SHOWN )); then
+        printf '%s└── %s%s\n' "$DIM" "$tally" "$RESET"
+    else
+        printf '%s%s  %s%s\n' "$DIM" "$GROUP_LABEL" "$tally" "$RESET"
+    fi
+}
+# A plain list as a tree under a heading already printed.
+tree_lines() {
+    local colour=$1 i n
+    shift
+    n=$#
+    for (( i = 1; i <= n; i++ )); do
+        if (( i < n )); then
+            printf '%s├──%s %s%s%s\n' "$DIM" "$RESET" "$colour" "${!i}" "$RESET"
+        else
+            printf '%s└──%s %s%s%s\n' "$DIM" "$RESET" "$colour" "${!i}" "$RESET"
+        fi
+    done
+}
 
 # ---- premise -------------------------------------------------------------
 
@@ -108,35 +166,85 @@ os_release_field() {
     printf '%s' "$value"
 }
 
+# The family names the package manager messages point at. ID first, then the
+# ID_LIKE words, so a derivative is known by its parent.
+distro_family() {
+    local word
+    for word in "$@"; do
+        case $word in
+            arch|manjaro|endeavouros|cachyos|garuda|artix) echo arch; return 0 ;;
+            debian|ubuntu|linuxmint|pop|elementary|zorin|kali|raspbian) echo debian; return 0 ;;
+            fedora|rhel|centos|rocky|almalinux|ol) echo fedora; return 0 ;;
+            opensuse*|sles|suse) echo suse; return 0 ;;
+            void) echo void; return 0 ;;
+            gentoo) echo gentoo; return 0 ;;
+            alpine) echo alpine; return 0 ;;
+        esac
+    done
+    return 0
+}
+
+install_hint() {
+    case $FAMILY in
+        arch) echo "pacman -S $1" ;;
+        debian) echo "apt install $1" ;;
+        fedora) echo "dnf install $1" ;;
+        suse) echo "zypper install $1" ;;
+        void) echo "xbps-install -S $1" ;;
+        gentoo) echo "emerge $1" ;;
+        alpine) echo "apk add $1" ;;
+        *) echo "your package manager ($1)" ;;
+    esac
+}
+
+# The first dotted number on a program's --version line, or nothing.
+version_of() {
+    local out
+    out=$("$@" 2>/dev/null | head -n 1) || :
+    [[ $out =~ ([0-9]+\.[0-9]+(\.[0-9]+)?) ]] && printf '%s' "${BASH_REMATCH[1]}"
+    return 0
+}
+
 check_premise() {
-    local os=${DOTFILES_OS_RELEASE:-} f id like name tool sys session session_env missing=""
+    local os=${DOTFILES_OS_RELEASE:-} f id like tool package sys session session_env help missing=""
+    local -a words=()
     if [[ -z $os ]]; then
         for f in /etc/os-release /usr/lib/os-release; do
             if [[ -r $f ]]; then os=$f; break; fi
         done
     fi
     if [[ -z $os || ! -r $os ]]; then
-        PROBLEMS+=("no readable os-release, so the distribution is unknown; this repository targets Arch Linux")
+        PROBLEMS+=("no readable os-release, so the distribution is unknown")
     else
         id=$(os_release_field ID "$os")
         like=$(os_release_field ID_LIKE "$os")
-        name=$(os_release_field PRETTY_NAME "$os")
-        if [[ $id != arch && " $like " != *" arch "* ]]; then
-            PROBLEMS+=("this is ${name:-${id:-an unknown system}}, not Arch Linux or a derivative; the paths here are Arch's")
+        PRETTY=$(os_release_field PRETTY_NAME "$os")
+        PRETTY=${PRETTY:-${id:-an unknown system}}
+        read -ra words <<<"$id $like"
+        FAMILY=$(distro_family "${words[@]}")
+        if [[ -z $FAMILY ]]; then
+            PROBLEMS+=("$PRETTY is not a distribution this repository recognises (Arch, Debian/Ubuntu, Fedora/RHEL, openSUSE, Void, Gentoo, Alpine)")
         fi
     fi
 
-    for tool in "zsh:the shell this configures" "kitty:the terminal kitty.conf is for" \
-                "nvim:the editor, man pager and scrollback pager" \
-                "git:the git include, and telling this repository's files from others"; do
-        if ! command -v "${tool%%:*}" >/dev/null 2>&1; then
-            PROBLEMS+=("${tool%%:*} is not installed (${tool#*:}); install it with pacman")
+    for tool in "zsh:zsh:the shell this configures" "kitty:kitty:the terminal kitty.conf is for" \
+                "nvim:neovim:the editor, man pager and scrollback pager" \
+                "git:git:the git include, and telling this repository's files from others"; do
+        IFS=: read -r f package _ <<<"$tool"
+        if ! command -v "$f" >/dev/null 2>&1; then
+            PROBLEMS+=("$f is not installed (${tool##*:}); install it: $(install_hint "$package")")
         fi
     done
+    # busybox's mv has no -T, and every write here is a rename with it.
+    # Captured, not piped into grep -q: an early close would trip pipefail.
+    help=$(mv --help 2>&1 || :)
+    if [[ $help != *--no-target-directory* ]]; then
+        PROBLEMS+=("mv lacks -T, so this is not GNU coreutils; install it: $(install_hint coreutils)")
+    fi
 
-    if [[ ! -r $OMZ/oh-my-zsh.sh ]]; then missing+=", Oh My Zsh in $OMZ"; fi
+    if [[ ! -r $OMZ/oh-my-zsh.sh ]]; then missing+=", Oh My Zsh in $(tilde "$OMZ")"; fi
     for f in themes/powerlevel10k plugins/zsh-autosuggestions plugins/zsh-syntax-highlighting; do
-        if [[ ! -d $OMZ_CUSTOM/$f ]]; then missing+=", $OMZ_CUSTOM/$f"; fi
+        if [[ ! -d $OMZ_CUSTOM/$f ]]; then missing+=", $(tilde "$OMZ_CUSTOM/$f")"; fi
     done
     if [[ -n $missing ]]; then
         PROBLEMS+=("zshrc needs ${missing#, }; run ./bootstrap.sh first")
@@ -145,7 +253,7 @@ check_premise() {
     # zsh reads every startup file from ZDOTDIR when it is set, so a ~/.zshrc
     # written here would be ignored. -f still reads the system zshenv.
     if [[ -n ${ZDOTDIR:-} && ${ZDOTDIR%/} != "${HOME%/}" ]]; then
-        PROBLEMS+=("ZDOTDIR is $ZDOTDIR, so zsh would ignore ~/.zshrc; unset it or set it to \$HOME")
+        PROBLEMS+=("ZDOTDIR is $(tilde "$ZDOTDIR"), so zsh would ignore ~/.zshrc; unset it or set it to \$HOME")
     elif command -v zsh >/dev/null 2>&1; then
         # shellcheck disable=SC2016 # zsh expands it, not this shell
         sys=$(env -i HOME="$HOME" PATH="$PATH" zsh -f -c 'print -r -- "${ZDOTDIR-}"' 2>/dev/null) || sys=""
@@ -160,12 +268,23 @@ check_premise() {
         session=$(awk '/^XDG_CONFIG_HOME=/ { sub(/^[^=]*=/, ""); print; exit }' <<<"$session_env")
         if [[ $session != /* ]]; then session=$HOME/.config; fi
         if [[ ${session%/} != "$CONFIG" ]]; then
-            PROBLEMS+=("files would go to $CONFIG, but the session's programs read ${session%/}: XDG_CONFIG_HOME differs between this shell and the systemd user manager")
+            PROBLEMS+=("files would go to $(tilde "$CONFIG"), but the session's programs read $(tilde "${session%/}"): XDG_CONFIG_HOME differs between this shell and the systemd user manager")
         fi
     fi
     if [[ -n ${KITTY_CONFIG_DIRECTORY:-} && ${KITTY_CONFIG_DIRECTORY%/} != "$CONFIG/kitty" ]]; then
-        PROBLEMS+=("KITTY_CONFIG_DIRECTORY is $KITTY_CONFIG_DIRECTORY, so kitty would not read $CONFIG/kitty")
+        PROBLEMS+=("KITTY_CONFIG_DIRECTORY is $(tilde "$KITTY_CONFIG_DIRECTORY"), so kitty would not read $(tilde "$CONFIG/kitty")")
     fi
+}
+
+# Even nvim --version creates ~/.local/state/nvim/nvim.log unless its log goes
+# elsewhere, and --check promises to write nothing.
+premise_line() {
+    local line="premise: $PRETTY ($FAMILY family)" tool v
+    for tool in zsh kitty nvim git; do
+        v=$(NVIM_LOG_FILE=/dev/null version_of "$tool" --version)
+        line+=", $tool${v:+ $v}"
+    done
+    printf '%s✓%s %s\n' "$GREEN" "$RESET" "$line"
 }
 
 # ---- ownership -----------------------------------------------------------
@@ -241,12 +360,12 @@ show_diff() {
 ask() {
     local verb=$1 target=$2 answer
     if ! { exec 3<>/dev/tty; } 2>/dev/null; then
-        echo "install: no terminal to ask on; rerun in a terminal to choose, or with --force" >&2
+        printf '%sinstall: no terminal to ask on; rerun in a terminal to choose, or with --force%s\n' "$YELLOW" "$RESET" >&2
         return 1
     fi
     while :; do
         printf '%s %s? [y] yes  [n] no, keep it and stop  [a] all, this and every later conflict: ' \
-            "$verb" "$target" >&3
+            "$verb" "$(tilde "$target")" >&3
         if ! IFS= read -r answer <&3; then
             printf '\n' >&3
             answer=n
@@ -261,49 +380,64 @@ ask() {
 
 # $1 Overwrite or Remove, $2 target, $3 label of the repository side, $4 its
 # content (/dev/null for a removal). Returns to go ahead; stops on a no.
+# Whatever goes ahead is marked, so its branch says it came after a conflict.
 conflict() {
     local verb=$1 target=$2
+    CONFLICTED=1
     if (( FORCE )); then
-        echo "forced $target"
         FORCED=$((FORCED + 1))
         return 0
     fi
-    printf '%sconflict%s  %s: not what this repository installed\n' "$BOLD" "$RESET" "$target"
-    show_diff "$target" "$4" "$target (installed)" "$3"
+    group_label
+    printf '\n%s✗ conflict%s  %s: not what this repository installed\n' "$BOLD$RED" "$RESET" "$(tilde "$target")"
+    show_diff "$target" "$4" "$(tilde "$target") (installed)" "$3"
     if ask "$verb" "$target"; then
         FORCED=$((FORCED + 1))
         return 0
     fi
-    stop "kept $target as it is"
+    stop "kept $(tilde "$target") as it is"
 }
 
 # ---- writes --------------------------------------------------------------
 
+# $3 is the branch's name for the file.
 write_file() {
-    local src=$1 dst=$2 dir tmp
+    local src=$1 dst=$2 name=$3 dir tmp
     dir=$(dirname -- "$dst")
-    mkdir -p -- "$dir" || stop "could not create $dir"
+    mkdir -p -- "$dir" || stop "could not create $(tilde "$dir")"
     tmp=$dst.new-$$
     if ! cp -a -- "$src" "$tmp"; then
         rm -f -- "$tmp"
-        stop "could not write $dst"
+        stop "could not write $(tilde "$dst")"
     fi
     # rename(2): a watcher never sees the path missing, and a link left by
     # an older install is replaced, not written through.
     if ! mv -fT -- "$tmp" "$dst"; then
         rm -f -- "$tmp"
-        stop "could not replace $dst"
+        stop "could not replace $(tilde "$dst")"
     fi
     remember "$dst"
     INSTALLED=$((INSTALLED + 1))
-    echo "installed $dst"
+    GROUP_WROTE=$((GROUP_WROTE + 1))
+    if (( CONFLICTED )); then
+        branch "${YELLOW}overwritten after a conflict: $name$RESET"
+    else
+        branch "$GREEN✓$RESET $name"
+    fi
+    CONFLICTED=0
 }
 
 remove_file() {
-    rm -f -- "$1" || stop "could not remove $1"
-    if [[ -n ${MANIFEST[$1]:-} ]]; then MANIFEST[$1]=""; MANIFEST_DIRTY=1; fi
+    local target=$1 name=$2
+    rm -f -- "$target" || stop "could not remove $(tilde "$target")"
+    if [[ -n ${MANIFEST[$target]:-} ]]; then MANIFEST[$target]=""; MANIFEST_DIRTY=1; fi
     REMOVED=$((REMOVED + 1))
-    echo "removed $1"
+    if (( CONFLICTED )); then
+        branch "${YELLOW}removed after a conflict: $name$RESET"
+    else
+        branch "$GREEN✓$RESET removed $name"
+    fi
+    CONFLICTED=0
 }
 
 # Older installs linked into the checkout; such a link is ours to replace.
@@ -311,30 +445,37 @@ old_link() {
     [[ -L $1 && $(readlink -f -- "$1" 2>/dev/null) == "$SRC"/* ]]
 }
 
+todo() {
+    GROUP_TODO=$((GROUP_TODO + 1))
+    DRIFT=1
+    branch "$1"
+}
+
 # ---- steps ---------------------------------------------------------------
 
-# Overwritten on every run: files this repository authors and nothing else writes.
+# Overwritten on every run: files this repository authors and nothing else
+# writes. $3 names the file in its group's tree.
 mirror_file() {
-    local rel=$1 src=$SRC/$1 dst=$2
+    local rel=$1 src=$SRC/$1 dst=$2 name=${3:-$(tilde "$2")}
     [[ -f $src ]] || stop "the source $rel is missing from the checkout"
-    if [[ -d $dst && ! -L $dst ]]; then stop "$dst is a directory where $rel should go"; fi
+    if [[ -d $dst && ! -L $dst ]]; then stop "$(tilde "$dst") is a directory where $rel should go"; fi
     if [[ -e $dst ]] && ! old_link "$dst" && cmp -s -- "$src" "$dst"; then
         if [[ $MODE == install ]]; then remember "$dst"; fi
         UNCHANGED=$((UNCHANGED + 1))
+        GROUP_SAME=$((GROUP_SAME + 1))
         return 0
     fi
     if [[ $MODE == check ]]; then
-        DRIFT=1
-        if [[ ! -e $dst && ! -L $dst ]]; then echo "missing   $dst"
-        elif old_link "$dst" || ours "$dst" "$src"; then echo "behind    $dst"
-        else echo "conflict  $dst (would ask before overwriting)"
+        if [[ ! -e $dst && ! -L $dst ]]; then todo "${YELLOW}missing $name$RESET"
+        elif old_link "$dst" || ours "$dst" "$src"; then todo "${YELLOW}behind $name$RESET"
+        else todo "$RED✗ conflict $name$RESET"
         fi
         return 0
     fi
     if [[ -e $dst || -L $dst ]] && ! old_link "$dst" && ! ours "$dst" "$src"; then
         conflict Overwrite "$dst" "$rel (repository)" "$src"
     fi
-    write_file "$src" "$dst"
+    write_file "$src" "$dst" "$name"
 }
 
 # Every path the repository had under a directory, at any commit: a prune
@@ -356,13 +497,13 @@ mirror_dir() {
     local -A known=()
     [[ -d $src ]] || stop "the source $rel is missing from the checkout"
     if old_link "$dst"; then
-        if [[ $MODE == check ]]; then echo "behind    $dst (still a link from an older install)"; DRIFT=1; return 0; fi
-        rm -f -- "$dst" || stop "could not remove the old link $dst"
+        if [[ $MODE == check ]]; then todo "${YELLOW}behind $(tilde "$dst") (still a link from an older install)$RESET"; return 0; fi
+        rm -f -- "$dst" || stop "could not remove the old link $(tilde "$dst")"
     elif [[ -e $dst && ! -d $dst ]]; then
-        stop "$dst is not a directory; move it away and run this again"
+        stop "$(tilde "$dst") is not a directory; move it away and run this again"
     fi
     while IFS= read -r -d '' -u 4 r; do
-        mirror_file "$rel/${r#./}" "$dst/${r#./}"
+        mirror_file "$rel/${r#./}" "$dst/${r#./}" "${r#./}"
     done 4< <(cd -- "$src" && find . -mindepth 1 \( -type f -o -type l \) -print0 | LC_ALL=C sort -z)
 
     [[ -d $dst ]] || return 0
@@ -371,46 +512,51 @@ mirror_dir() {
         r=${r#./}
         t=$dst/$r
         [[ -e $src/$r ]] && continue
-        [[ -n ${known[$r]:-} || -n ${MANIFEST[$t]:-} ]] || continue
+        if [[ -z ${known[$r]:-} && -z ${MANIFEST[$t]:-} ]]; then
+            branch "${YELLOW}left $r: not from this repository$RESET"
+            continue
+        fi
         if [[ $MODE == check ]]; then
-            DRIFT=1
-            if ours "$t"; then echo "stale     $t (gone from the repository)"
-            else echo "conflict  $t (gone from the repository and changed since; would ask before removing)"
+            if ours "$t"; then todo "${YELLOW}stale $r$RESET"
+            else todo "$RED✗ conflict $r (gone from the repository and changed since)$RESET"
             fi
             continue
         fi
         if ! ours "$t"; then
             conflict Remove "$t" "/dev/null (removed from the repository)" /dev/null
         fi
-        remove_file "$t"
+        remove_file "$t" "$r"
     done 4< <(cd -- "$dst" && find . -mindepth 1 \( -type f -o -type l \) -print0 | LC_ALL=C sort -z)
 }
 
 # Copied once, then left alone: p10k configure rewrites the file, and a link
 # would let it write through into the checkout. Copy a change back to keep it.
 seed_file() {
-    local rel=$1 src=$SRC/$1 dst=$2
+    local rel=$1 src=$SRC/$1 dst=$2 name
+    name=$(tilde "$dst")
     if old_link "$dst"; then
-        if [[ $MODE == check ]]; then echo "behind    $dst (still a link from an older install)"; DRIFT=1; return 0; fi
-        rm -f -- "$dst" || stop "could not remove the old link $dst"
+        if [[ $MODE == check ]]; then todo "${YELLOW}behind $name (still a link from an older install)$RESET"; return 0; fi
+        rm -f -- "$dst" || stop "could not remove the old link $name"
     fi
     if [[ -e $dst ]]; then
         if ! cmp -s -- "$src" "$dst"; then
-            NOTES+=("$dst differs from $rel and is left alone; copy it back into $rel to keep the change")
+            NOTES+=("$name differs from $rel and is left alone; copy it back into $rel to keep the change")
         fi
         UNCHANGED=$((UNCHANGED + 1))
+        GROUP_SAME=$((GROUP_SAME + 1))
         return 0
     fi
-    if [[ $MODE == check ]]; then echo "missing   $dst (would be seeded)"; DRIFT=1; return 0; fi
-    write_file "$src" "$dst"
+    if [[ $MODE == check ]]; then todo "${YELLOW}missing $name (seeded once)$RESET"; return 0; fi
+    write_file "$src" "$dst" "$name"
 }
 
 # A checkout without the executable bit (core.fileMode=false, an archive)
 # still gives an el that runs.
 ensure_executable() {
     [[ -x $1 ]] && return 0
-    if [[ $MODE == check ]]; then echo "behind    $1 (not executable)"; DRIFT=1; return 0; fi
-    chmod 755 -- "$1" || stop "could not make $1 executable"
+    if [[ $MODE == check ]]; then todo "${YELLOW}behind $(tilde "$1") (not executable)$RESET"; return 0; fi
+    chmod 755 -- "$1" || stop "could not make $(tilde "$1") executable"
+    branch "$GREEN✓$RESET made $(tilde "$1") executable"
 }
 
 # gdb reads exactly one user init file, so gdb is asked which. The block at
@@ -437,14 +583,14 @@ gdb_presets() {
     fi
     if [[ -f $init ]]; then
         if [[ $(grep -cxF -- "$begin" "$init" || :) != "$(grep -cxF -- "$end" "$init" || :)" ]]; then
-            NOTES+=("$init has an unpaired gdb presets marker, so it was left alone")
+            NOTES+=("$(tilde "$init") has an unpaired gdb presets marker, so it was left alone")
             return 0
         fi
         if grep -qE -- "$dbg_begin" "$init"; then
             if grep -qE -- "$dbg_end" "$init"; then
                 dbg_ok=1
             else
-                NOTES+=("$init has a debug-max block without its end marker; that block stays")
+                NOTES+=("$(tilde "$init") has a debug-max block without its end marker; that block stays")
             fi
         fi
         raw=$(grep -m 1 -E -- "$pw_line" "$init" || :)
@@ -457,6 +603,8 @@ gdb_presets() {
         recorded=${recorded%%$'\n'*}
         if [[ -n $recorded ]]; then candidates+=("$recorded"); fi
     fi
+    # A git checkout (pwndbg's own way, on any distribution), then Arch's
+    # package.
     candidates+=("$HOME/pwndbg/gdbinit.py" /usr/share/pwndbg/gdbinit.py)
     for candidate in "${candidates[@]}"; do
         if [[ -f $candidate ]]; then pwndbg=$candidate; break; fi
@@ -473,7 +621,7 @@ gdb_presets() {
     if [[ -n $pwndbg ]]; then block+="python gdb_presets_pwndbg_source = \"$pwndbg\""$'\n'; fi
     block+="source $CONFIG/gdb/presets.py"$'\n'$end
     if [[ -L $init ]]; then
-        NOTES+=("$init is a symlink and was left alone; put this block at its top by hand: ${block//$'\n'/ | }")
+        NOTES+=("$(tilde "$init") is a symlink and was left alone; put this block at its top by hand: ${block//$'\n'/ | }")
         return 0
     fi
     new=$WORK/gdbinit
@@ -494,22 +642,24 @@ gdb_presets() {
     } >"$new"
     if [[ -f $init ]] && cmp -s -- "$new" "$init"; then
         UNCHANGED=$((UNCHANGED + 1))
+        GROUP_SAME=$((GROUP_SAME + 1))
         return 0
     fi
-    if [[ $MODE == check ]]; then echo "behind    $init (gdb presets block)"; DRIFT=1; return 0; fi
-    mkdir -p -- "$(dirname -- "$init")" || stop "could not create the directory of $init"
-    tmp=$(mktemp "$init.new-XXXXXX") || stop "could not write beside $init"
-    cat -- "$new" >"$tmp" || stop "could not write $tmp"
+    if [[ $MODE == check ]]; then todo "${YELLOW}behind the presets block in $(tilde "$init")$RESET"; return 0; fi
+    mkdir -p -- "$(dirname -- "$init")" || stop "could not create the directory of $(tilde "$init")"
+    tmp=$(mktemp "$init.new-XXXXXX") || stop "could not write beside $(tilde "$init")"
+    cat -- "$new" >"$tmp" || stop "could not write $(tilde "$tmp")"
     if [[ -f $init ]]; then
         chmod --reference="$init" -- "$tmp" || :
-        cp -p -- "$init" "$init.bak-$STAMP" || stop "could not back up $init"
-        echo "kept the previous $init at $init.bak-$STAMP"
+        cp -p -- "$init" "$init.bak-$STAMP" || stop "could not back up $(tilde "$init")"
     fi
-    mv -fT -- "$tmp" "$init" || stop "could not replace $init"
+    mv -fT -- "$tmp" "$init" || stop "could not replace $(tilde "$init")"
     INSTALLED=$((INSTALLED + 1))
-    echo "configured $init: presets block on top${pwndbg:+, pwndbg at $pwndbg}"
-    if (( moved )); then echo "  moved its own pwndbg source line into the block"; fi
-    if (( dbg_ok )); then echo "  dropped the inline debug-max block; it is now $CONFIG/gdb/debug-max.gdb"; fi
+    GROUP_WROTE=$((GROUP_WROTE + 1))
+    branch "$GREEN✓$RESET presets block in $(tilde "$init")${pwndbg:+, pwndbg at $(tilde "$pwndbg")}"
+    if [[ -f $init.bak-$STAMP ]]; then branch "${DIM}the previous file is $(tilde "$init.bak-$STAMP")$RESET"; fi
+    if (( moved )); then branch "${DIM}its own pwndbg source line moved into the block$RESET"; fi
+    if (( dbg_ok )); then branch "${DIM}the inline debug-max block dropped; it is $(tilde "$CONFIG/gdb/debug-max.gdb") now$RESET"; fi
 }
 
 # Included, not linked, so ~/.gitconfig keeps the identity and its own
@@ -519,12 +669,14 @@ git_include() {
     local include=$SRC/git/gitconfig
     if git config --global --get-all include.path 2>/dev/null | grep -qxF -- "$include"; then
         UNCHANGED=$((UNCHANGED + 1))
+        GROUP_SAME=$((GROUP_SAME + 1))
         return 0
     fi
-    if [[ $MODE == check ]]; then echo "missing   include.path $include in the global git config"; DRIFT=1; return 0; fi
-    git config --global --add include.path "$include" || stop "could not add $include to the global git config"
+    if [[ $MODE == check ]]; then todo "${YELLOW}missing the include of $(tilde "$include") in the global git config$RESET"; return 0; fi
+    git config --global --add include.path "$include" || stop "could not add $(tilde "$include") to the global git config"
     INSTALLED=$((INSTALLED + 1))
-    echo "included $include from the global git config"
+    GROUP_WROTE=$((GROUP_WROTE + 1))
+    branch "$GREEN✓$RESET included $(tilde "$include") from the global git config"
 }
 
 # sudo looks for commands only in its secure_path, so `sudo el` needs a
@@ -554,9 +706,10 @@ doctor() {
         done
     fi
     if (( ${#missing[@]} == 0 )); then
-        echo "doctor: every optional tool is present"
+        printf '%s✓%s doctor: every optional tool is present\n' "$GREEN" "$RESET"
     else
-        printf 'doctor: missing %s\n' "${missing[@]}"
+        printf '%sdoctor: missing%s\n' "$YELLOW" "$RESET"
+        tree_lines "$YELLOW" "${missing[@]}"
     fi
 }
 
@@ -565,10 +718,14 @@ doctor() {
 STEP_KIND=() STEP_SRC=() STEP_DST=()
 step() { STEP_KIND+=("$1"); STEP_SRC+=("$2"); STEP_DST+=("$3"); }
 
-# Files that others source come first, so a stopped run leaves no file
-# pointing at one not installed yet.
+# Directories first, then the single files as one group: files that others
+# source come before the files sourcing them (zsh/config and shell before
+# zshrc, repl.js before node.sh), so a stopped run leaves no file pointing at
+# one not installed yet.
 step dir  zsh/config        "$CONFIG/zsh"
 step dir  shell             "$CONFIG/shell"
+step dir  kitty             "$CONFIG/kitty"
+step dir  fastfetch         "$CONFIG/fastfetch"
 step file node/repl.js      "$CONFIG/node/repl.js"
 # NODE_OPTIONS reaches every node, scripts included; repl.js defines nothing
 # outside an interactive REPL.
@@ -576,9 +733,7 @@ step file node/node.sh      "$CONFIG/profile.d/node.sh"
 # File by file: mirroring the directory would prune a gdbinit kept there.
 step file gdb/presets.py    "$CONFIG/gdb/presets.py"
 step file gdb/debug-max.gdb "$CONFIG/gdb/debug-max.gdb"
-step dir  kitty             "$CONFIG/kitty"
 step file tmux/tmux.conf    "$CONFIG/tmux/tmux.conf"
-step dir  fastfetch         "$CONFIG/fastfetch"
 step exe  bin/el            "$HOME/.local/bin/el"
 step file npm/npmrc         "$HOME/.npmrc"
 step file iex/iex.exs       "$HOME/.iex.exs"
@@ -590,6 +745,17 @@ step seed zsh/p10k.zsh      "$HOME/.p10k.zsh"
 step gdb  ""                "the gdb presets block"
 step git  git/gitconfig     "the global git include"
 step el   bin/el            "the root copy of el in $ROOT_EL"
+
+# The group a step's branches go under: its own directory, "home files" for
+# the single files, "gdb and git" for the two managed entries.
+group_of() {
+    case ${STEP_KIND[$1]} in
+        dir) tilde "${STEP_DST[$1]}" ;;
+        file|exe|seed) printf 'home files' ;;
+        gdb|git) printf 'gdb and git' ;;
+        *) printf '' ;;
+    esac
+}
 
 run_step() {
     local i=$1
@@ -607,31 +773,37 @@ run_step() {
 
 finish() {
     local code=$1 i
+    local -a rest=()
     FINISHING=1
     trap - ERR INT TERM
     if [[ $MODE == install ]]; then
-        save_manifest || echo "install: could not record what was installed in $MANIFEST_FILE" >&2
+        save_manifest || echo "install: could not record what was installed in $(tilde "$MANIFEST_FILE")" >&2
     fi
     echo
-    if [[ $MODE == install ]]; then
-        echo "installed $INSTALLED, unchanged $UNCHANGED, removed $REMOVED, overwritten after a conflict $FORCED"
-        if (( code != 0 && STEP < ${#STEP_KIND[@]} )); then
-            echo "not done:"
-            for (( i = STEP; i < ${#STEP_KIND[@]}; i++ )); do echo "  ${STEP_DST[i]}"; done
-        fi
-    fi
-    for i in "${NOTES[@]}"; do echo "note: $i"; done
-    if (( ${#UNDONE[@]} )); then
-        echo "left undone:"
-        for i in "${UNDONE[@]}"; do echo "  $i"; done
+    if [[ $MODE == install ]] && (( code != 0 && STEP < ${#STEP_KIND[@]} )); then
+        for (( i = STEP; i < ${#STEP_KIND[@]}; i++ )); do
+            case ${STEP_KIND[i]} in
+                dir|file|exe|seed) rest+=("$(tilde "${STEP_DST[i]}")") ;;
+                *) rest+=("${STEP_DST[i]}") ;;
+            esac
+        done
+        printf '%snot done (%s written before the stop):%s\n' "$DIM" "$INSTALLED" "$RESET"
+        tree_lines "$DIM" "${rest[@]}"
+    elif (( ${#UNDONE[@]} )); then
+        printf '%sleft undone%s %s(%s written)%s\n' "$BOLD$YELLOW" "$RESET" "$DIM" "$INSTALLED" "$RESET"
+        tree_lines "$YELLOW" "${UNDONE[@]}"
         (( code )) || code=1
+    elif [[ $MODE == install ]]; then
+        printf '%s✓ everything is in place%s %s(%s written, %s unchanged)%s\n' \
+            "$BOLD$GREEN" "$RESET" "$DIM" "$INSTALLED" "$UNCHANGED" "$RESET"
     fi
+    for i in "${NOTES[@]}"; do printf '%snote: %s%s\n' "$DIM" "$i" "$RESET"; done
     if [[ $MODE == check ]]; then
         if (( DRIFT || ${#PROBLEMS[@]} )); then
             code=1
-            echo "run ./install.sh to apply"
+            printf '%srun ./install.sh to apply%s\n' "$YELLOW" "$RESET"
         else
-            echo "everything installed is current"
+            printf '%s✓%s everything installed is current\n' "$GREEN" "$RESET"
         fi
     fi
     if (( STEP >= ${#STEP_KIND[@]} )); then doctor; fi
@@ -640,7 +812,8 @@ finish() {
 }
 
 stop() {
-    echo "install: stopped: $1" >&2
+    if (( GROUP_SHOWN )); then printf '%s└── stopped here%s\n' "$DIM" "$RESET"; fi
+    printf '%s✗ stopped:%s %s\n' "$BOLD$RED" "$RESET" "$1" >&2
     finish 1
 }
 
@@ -654,15 +827,21 @@ on_error() {
     stop "'$command' failed with status $code (install.sh line $line)"
 }
 
+printf '%sdotfiles-terminal%s  %s%s %s%s\n' "$BOLD$CYAN" "$RESET" "$DIM" \
+    "$([[ $MODE == check ]] && echo checking || echo installing into)" "$(tilde "$HOME")" "$RESET"
 check_premise
 if (( ${#PROBLEMS[@]} )); then
     if [[ $MODE == install ]]; then
-        echo "install: nothing was written; the premise is not met:" >&2
-        printf '  %s\n' "${PROBLEMS[@]}" >&2
+        printf '%s✗ the premise is not met; nothing was written%s\n' "$RED" "$RESET" >&2
+        tree_lines "" "${PROBLEMS[@]}" >&2
         exit 1
     fi
-    printf 'premise   %s\n' "${PROBLEMS[@]}"
+    printf '%s✗ the premise is not met%s\n' "$RED" "$RESET"
+    tree_lines "" "${PROBLEMS[@]}"
+else
+    premise_line
 fi
+echo
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-terminal.XXXXXX")
 trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
@@ -670,12 +849,20 @@ trap 'stop "interrupted"' INT TERM
 
 load_manifest
 if [[ $MODE == install ]]; then
-    mkdir -p -- "$STATE" || stop "could not create $STATE"
+    mkdir -p -- "$STATE" || stop "could not create $(tilde "$STATE")"
     exec 9>"$STATE/lock"
     flock -n 9 || stop "another ./install.sh is running"
 fi
 
+current=""
 for (( STEP = 0; STEP < ${#STEP_KIND[@]}; STEP++ )); do
+    label=$(group_of "$STEP")
+    if [[ $label != "$current" ]]; then
+        [[ -n $current ]] && group_close
+        current=$label
+        [[ -n $current ]] && group_open "$current"
+    fi
     run_step "$STEP"
 done
+[[ -n $current ]] && group_close
 finish 0
