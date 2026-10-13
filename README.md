@@ -14,10 +14,12 @@ derivatives and Debian/Ubuntu, Fedora/RHEL, openSUSE, Void, Gentoo and
 Alpine (derivatives known by `ID_LIKE`) are recognised but untested: a
 missing program is named with that package manager's command. `install.sh`
 checks the premise first and writes nothing when it is not met, an
-unrecognised distribution included. Within it, the files adapt: pwndbg comes
-from `~/pwndbg` or `/usr/share/pwndbg`. Optional tools (eza, fzf, tmux,
-wl-copy, gdb, pwndbg, node, IEx, fastfetch, gh, the two fonts) are listed by
-the closing doctor line when missing; each feature does without its tool.
+unrecognised distribution included. Within it, the files adapt: fzf's two
+scripts come from the distribution's files, or from `fzf --zsh` where those
+are incomplete; pwndbg from `~/pwndbg` or `/usr/share/pwndbg`. Optional
+tools (eza, fzf, tmux, wl-copy, gdb, pwndbg, node, IEx, fastfetch, gh, the
+two fonts) are listed by the closing doctor line when missing; each feature
+does without its tool.
 
 ## Layout
 
@@ -30,7 +32,7 @@ kitty/        kitty.conf, the spaceduck palette, the scrollback search kitten
 tmux/ npm/ fastfetch/ git/ gdb/ node/ iex/
 install.sh    places the files (below)
 bootstrap.sh  clones what is not a file here, sets the login shell
-tests/        tests/run.sh: static checks and the installer suite
+tests/        run.sh: static checks, the fzf lookup, the installer suite
 ```
 
 ## Install
@@ -138,12 +140,14 @@ unless it calls `import_file("~/.iex.exs")`.
 ## Checks
 
 ```sh
-tests/run.sh    # shellcheck, zsh/python/node syntax, then install.sh on a temporary HOME
+tests/run.sh    # shellcheck, zsh/python/node syntax, the fzf lookup, then install.sh on a temporary HOME
 ```
 
 The installer suite never touches the real HOME: each case runs on its own
 temporary home and a copy of this checkout, with stand-ins for systemctl,
-gdb and fc-list, and answers conflicts through a pty.
+gdb and fc-list and an os-release per recognised distribution, and answers
+conflicts through a pty. `tests/fzf.sh` runs zshrc's fzf block on a fake
+root laid out as each distribution does.
 
 Third-party files (the p10k configuration, the spaceduck palette, the search
 kitten) keep their own licenses; see `THIRD-PARTY-NOTICES`.

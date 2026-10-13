@@ -126,9 +126,25 @@ if [[ -n $(_clipboard_backends) ]]; then
     zle -N vi-yank-eol        _vi_yank_eol_clip
 fi
 
-# After bindkey -v, which would otherwise reset fzf's Ctrl-R and Ctrl-T.
-[ -f /usr/share/fzf/key-bindings.zsh ] && source /usr/share/fzf/key-bindings.zsh
-[ -f /usr/share/fzf/completion.zsh ] && source /usr/share/fzf/completion.zsh
+# After bindkey -v, which would otherwise reset fzf's Ctrl-R and Ctrl-T. Arch,
+# Void, openSUSE and Debian keep both scripts in one of these directories,
+# Fedora and Gentoo only the key bindings, Alpine its own plugin directory.
+# Short of both, fzf 0.48 and later prints them; an older one gets the files
+# there are.
+_fzf_dir=
+for _d in /usr/share/fzf /usr/share/fzf/shell /usr/share/doc/fzf/examples; do
+    if [[ -f $_d/key-bindings.zsh || -f $_d/completion.zsh ]]; then _fzf_dir=$_d; break; fi
+done
+if [[ -n $_fzf_dir && -f $_fzf_dir/key-bindings.zsh && -f $_fzf_dir/completion.zsh ]]; then
+    source $_fzf_dir/key-bindings.zsh
+    source $_fzf_dir/completion.zsh
+elif (( $+commands[fzf] )) && _fzf_init=$(fzf --zsh 2>/dev/null) && [[ -n $_fzf_init ]]; then
+    eval "$_fzf_init"
+elif [[ -n $_fzf_dir ]]; then
+    [[ -f $_fzf_dir/key-bindings.zsh ]] && source $_fzf_dir/key-bindings.zsh
+    [[ -f $_fzf_dir/completion.zsh ]] && source $_fzf_dir/completion.zsh
+fi
+unset _fzf_dir _fzf_init _d
 
 # Colors from Spaceduck (https://github.com/pineapplegiant/spaceduck),
 # matching kitty/spaceduck.conf.

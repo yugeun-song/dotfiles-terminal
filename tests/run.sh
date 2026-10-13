@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Checks this repository before it is installed or committed: static checks,
-# then tests/install.sh, which runs install.sh on a temporary HOME. Nothing
-# here touches the installed configuration. A missing tool skips its check.
+# tests/fzf.sh, which runs zshrc's fzf lookup on a fake root, then
+# tests/install.sh, which runs install.sh on a temporary HOME. Nothing here
+# touches the installed configuration. A missing tool skips its check.
 
 set -uo pipefail
 
@@ -17,12 +18,12 @@ if have shellcheck; then
     # too, is checked as bash here and parsed by zsh below. SC1090 and SC1091:
     # bashrc sources files that exist only at run time.
     out=$( {
-        shellcheck -x install.sh bootstrap.sh bin/el node/node.sh tests/run.sh tests/install.sh
+        shellcheck -x install.sh bootstrap.sh bin/el node/node.sh tests/run.sh tests/install.sh tests/fzf.sh
         shellcheck -s sh shell/man.sh
         shellcheck shell/path.sh
         shellcheck -s bash -e SC1090,SC1091 bash/bashrc
     } 2>&1 )
-    if [[ -z $out ]]; then echo "PASS  shellcheck: 9 scripts"; else fail "shellcheck:"; echo "$out" | head -40; fi
+    if [[ -z $out ]]; then echo "PASS  shellcheck: 10 scripts"; else fail "shellcheck:"; echo "$out" | head -40; fi
 else
     echo "SKIP  shellcheck: not installed"
 fi
@@ -51,6 +52,7 @@ else
     echo "SKIP  node syntax: node is not installed"
 fi
 
+tests/fzf.sh || failed=1
 tests/install.sh || failed=1
 
 if (( failed )); then
