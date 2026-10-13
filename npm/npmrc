@@ -1,4 +1,4 @@
-# Keep `npm install -g` out of pacman-owned /usr/lib/node_modules. Arch has no
-# EXTERNALLY-MANAGED guard for npm as it does for pip. zshenv also sets
-# npm_config_prefix, which yarn reads too.
+# Keep `npm install -g` out of the package manager's node_modules (/usr/lib on
+# Arch, which has no EXTERNALLY-MANAGED guard for npm as it has for pip).
+# zshenv also sets npm_config_prefix, which yarn reads too.
 prefix=${HOME}/.local

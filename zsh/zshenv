@@ -1,5 +1,5 @@
-# Keeps `npm install -g` and `yarn global` out of pacman's /usr/lib/node_modules;
-# yarn reads this variable, not ~/.npmrc.
+# Keeps `npm install -g` and `yarn global` out of the package manager's
+# node_modules (/usr/lib on Arch); yarn reads this variable, not ~/.npmrc.
 export npm_config_prefix="$HOME/.local"
 
 # User bin directories last (shell/path.sh, shared with bash). Here, not in
