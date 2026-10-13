@@ -1,5 +1,5 @@
-# Man page rendering. Sourced by zshrc and bashrc; POSIX sh only. Each setting
-# is a no-op without its target (no nvim, mandoc instead of groff, BSD man).
+# Man page rendering, sourced by zshrc and bashrc; POSIX sh only. Each setting
+# does nothing without its target (no nvim, mandoc instead of groff).
 
 # Make grotty emit overstrike, not SGR, so LESS_TERMCAP and nvim's man.lua can
 # color it. GROFF_NO_SGR is the older-groff spelling; mandoc ignores both.

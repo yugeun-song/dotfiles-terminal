@@ -1,9 +1,5 @@
-#
-# ~/.bashrc
-#
-
-# Before the guard: a non-interactive login bash reads this via ~/.bash_profile.
-# Same policy as zshenv: user bin directories go last, so pacman's copies win.
+# Before the guard: a non-interactive login bash reads this through Arch's
+# ~/.bash_profile. Same policy as zshenv: user bin directories go last.
 for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin" "$HOME/.ghcup/bin"; do
     PATH=":$PATH:"
     PATH="${PATH//:"$_userbin":/:}"
@@ -14,11 +10,10 @@ done
 unset _userbin
 export PATH
 
-# If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
 # Without histappend the last bash to exit overwrites every other session's
-# history. zsh is the login shell; this covers rescue shells and containers.
+# history. zsh is the login shell; bash covers rescue shells and containers.
 HISTSIZE=500000
 HISTFILESIZE=500000
 HISTCONTROL=ignoreboth
@@ -33,6 +28,7 @@ if ! command -v el >/dev/null 2>&1 && command -v eza >/dev/null 2>&1; then
     alias el='eza --icons -al'
 fi
 PS1='[\u@\h \W]\$ '
+# As zshenv: drop-ins this user owns that group and others cannot write.
 for _f in "${XDG_CONFIG_HOME:-$HOME/.config}"/profile.d/*.sh; do
     [ -f "$_f" ] && [ -O "$_f" ] && [ -z "$(find "$_f" -maxdepth 0 -perm /022 2>/dev/null)" ] && . "$_f"
 done

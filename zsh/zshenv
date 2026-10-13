@@ -1,14 +1,13 @@
-# Keep `npm install -g` and `yarn global` out of pacman-owned
-# /usr/lib/node_modules. The variable, unlike ~/.npmrc, is read by yarn too.
+# Keeps `npm install -g` and `yarn global` out of pacman's /usr/lib/node_modules;
+# yarn reads this variable, not ~/.npmrc.
 export npm_config_prefix="$HOME/.local"
 
-# User-level bin dirs go last, so a name pacman owns always resolves to the
-# packaged copy (e.g. a `cargo install` duplicate of a repo binary cannot
-# shadow it). Cost: an override in ~/.local/bin no longer wins. ~/.cargo/env
-# and ~/.ghcup/env are not sourced because they prepend. Here, not in zshrc,
-# so scripts resolve the same way. Each dir is removed first: `typeset -U`
-# keeps the first occurrence, so a dir a parent shell put in front would
-# otherwise stay there.
+# User bin directories go last, so a name pacman owns resolves to the packaged
+# copy (a `cargo install` duplicate cannot shadow it); an override in
+# ~/.local/bin no longer wins. ~/.cargo/env and ~/.ghcup/env prepend, so they
+# are not sourced. Here, not in zshrc, so scripts resolve alike. Each
+# directory is removed first: `typeset -U` keeps the first occurrence, which a
+# parent shell may have put in front.
 typeset -U path
 for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin" "$HOME/.ghcup/bin"; do
     path=("${(@)path:#$_userbin}")
@@ -16,7 +15,8 @@ for _userbin in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/.elan/bin" "$HOME/.
 done
 unset _userbin
 
-# Per-tool drop-ins; only files owned by this user and not group/other-writable.
+# Per-tool drop-ins, only from files this user owns that group and others
+# cannot write.
 for _f in "${XDG_CONFIG_HOME:-$HOME/.config}"/profile.d/*.sh(N.U^IW); do
     . "$_f"
 done

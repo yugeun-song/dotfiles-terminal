@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Fetch what zshrc needs but this repository does not carry: Oh My Zsh plus
-# powerlevel10k and two plugins in its custom dir (Oh My Zsh does not load the
-# Arch-packaged plugins from /usr/share). Also clones the nvim config and sets
-# the login shell. Re-runnable: existing clones are fast-forwarded, not replaced.
+# Once on a fresh machine, before ./install.sh: clones what zshrc needs but
+# this repository does not carry (Oh My Zsh, with powerlevel10k and two
+# plugins in its custom directory, since Oh My Zsh does not load the Arch
+# packages' copies from /usr/share), clones the nvim configuration and makes
+# zsh the login shell. Re-runnable: existing clones are fast-forwarded.
 set -uo pipefail
 
 case ${1:-} in
@@ -65,7 +66,7 @@ clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
 
 echo
 
-# The identity is set by hand, never by a script; only warn here.
+# The identity is set by hand, never by a script.
 if [[ -z "$(git config --global user.name)" || -z "$(git config --global user.email)" ]]; then
     echo "git has no identity yet; set it before committing:" >&2
     echo "  git config --global user.name  'Your Name'" >&2
@@ -74,9 +75,10 @@ fi
 
 echo
 
-# nvim config is its own repository at ~/nvim-config, linked (not copied) as
-# ~/.config/nvim so edits land in the checkout. The owner comes from the gh
-# login unless NVIM_CONFIG_URL is set, so no account name is hardcoded.
+# The nvim configuration is its own repository at ~/nvim-config, linked (not
+# copied) as ~/.config/nvim so edits land in the checkout. Its owner comes
+# from the gh login unless NVIM_CONFIG_URL is set: no account name is
+# written here.
 NVIM_SRC="${NVIM_CONFIG_DIR:-$HOME/nvim-config}"
 NVIM_LINK="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
 if [[ -d "$NVIM_SRC/.git" ]]; then

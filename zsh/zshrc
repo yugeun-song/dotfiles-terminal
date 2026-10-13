@@ -33,8 +33,7 @@ setopt HIST_FIND_NO_DUPS
 # Prompt config is seeded from zsh/p10k.zsh; `p10k configure` edits the copy.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-
-# --- Vi mode: hjkl editing on the command line ---
+# KEYTIMEOUT=1: Esc reaches normal mode in 10 ms, not 400.
 bindkey -v
 export KEYTIMEOUT=1
 export EDITOR=nvim
@@ -44,7 +43,7 @@ export VISUAL=nvim
 
 autoload -Uz add-zle-hook-widget edit-command-line
 
-# Cursor shape per mode (block=normal, beam=insert); p10k shows the text label
+# Block cursor in normal mode, beam in insert; p10k shows the mode's name.
 _vi_mode_cursor() {
   case $KEYMAP in
     vicmd) printf '\033[2 q' ;;
@@ -54,14 +53,14 @@ _vi_mode_cursor() {
 add-zle-hook-widget keymap-select _vi_mode_cursor
 add-zle-hook-widget line-init      _vi_mode_cursor
 
-# Ctrl-O inserts a newline instead of running the command.
-# No ESC prefix, so it can't be absorbed into the Esc -> normal-mode switch.
+# Ctrl-O inserts a newline: a key without an Esc prefix, which the switch to
+# normal mode would swallow.
 _insert_newline() { LBUFFER+=$'\n'; }
 zle -N _insert_newline
 bindkey -M viins '^O' _insert_newline
 bindkey -M vicmd '^O' _insert_newline
 
-# Keep the emacs keys that make insert mode livable
+# The emacs keys that make insert mode livable.
 bindkey -M viins '^?' backward-delete-char
 bindkey -M viins '^H' backward-delete-char
 bindkey -M viins '^A' beginning-of-line
@@ -127,7 +126,7 @@ if [[ -n $(_clipboard_backends) ]]; then
     zle -N vi-yank-eol        _vi_yank_eol_clip
 fi
 
-# fzf sourced AFTER vi mode so Ctrl-R / Ctrl-T survive bindkey -v
+# After bindkey -v, which would otherwise reset fzf's Ctrl-R and Ctrl-T.
 [ -f /usr/share/fzf/key-bindings.zsh ] && source /usr/share/fzf/key-bindings.zsh
 [ -f /usr/share/fzf/completion.zsh ] && source /usr/share/fzf/completion.zsh
 

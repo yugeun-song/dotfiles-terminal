@@ -1,158 +1,141 @@
 # dotfiles-terminal
 
-Terminal-side configuration: shell, prompt, terminal emulator, multiplexer,
-debugger. Machine independent; every path is relative to `$HOME`, apart from
-the root-owned copy of `el` that `sudo el` needs.
+Shell, prompt, terminal and debugger configuration: zsh, bash, kitty, tmux,
+gdb, git, and number-base helpers for the node and IEx REPLs. The desktop
+(Hyprland, the bar, the session) lives in
+[dotfiles-desktop](https://github.com/yugeun-song/dotfiles-desktop); no file
+is installed by both.
+
+## Premise
+
+Arch Linux or a derivative, zsh with Oh My Zsh, powerlevel10k and its two
+plugins, kitty, nvim and git. Paths follow Arch's packages (fzf's key
+bindings in `/usr/share/fzf`, pwndbg in `/usr/share/pwndbg`). `install.sh`
+checks the premise first and writes nothing when it is not met. Within it,
+the files adapt to the machine; optional tools (eza, fzf, tmux, wl-copy,
+gdb, pwndbg, node, IEx, fastfetch, gh, the two fonts) are listed by the
+closing doctor line when missing, and each feature does without its tool.
 
 ## Layout
 
 ```
-zsh/          zshrc, zshenv, zprofile, p10k.zsh (prompt), config/caps-lock.zsh
-bash/         bashrc, for shells that are not zsh
-shell/        man.sh, man page settings sourced by both shells
-bin/          el, eza's long listing as a script that sudo can run
-git/          shared git settings, no identity
-gdb/          presets.py and debug-max.gdb: stock pwndbg or the Linux Kernel preset
-kitty/        kitty.conf, spaceduck palette, search kitten (search.py + scroll_mark.py)
-tmux/         tmux.conf
-npm/          npmrc
-node/         repl.js and node.sh: hex, oct and bin helpers in the node REPL
-iex/          iex.exs: hex, oct and bin helpers, Bitwise imported
-fastfetch/    config.jsonc
+zsh/          zshrc, zshenv, zprofile, p10k.zsh (the prompt), config/caps-lock.zsh
+bash/         bashrc, for rescue shells and containers
+shell/        man.sh, man page settings for both shells
+bin/          el: eza's long listing as a script sudo can run
+kitty/        kitty.conf, the spaceduck palette, the scrollback search kitten
+tmux/ npm/ fastfetch/ git/ gdb/ node/ iex/
 install.sh    places the files (below)
 bootstrap.sh  clones what is not a file here, sets the login shell
+tests/        tests/run.sh: static checks and the installer suite
 ```
 
 ## Install
 
 ```sh
-./install.sh      # every time a file here changes
-./bootstrap.sh    # once on a fresh machine; reaches the network, runs sudo chsh
+./bootstrap.sh          # once, first: Oh My Zsh and the rest, the nvim config, zsh as login shell
+./install.sh            # every time a file here changes
+./install.sh --check    # what is behind or conflicting; writes nothing
+./install.sh --force    # overwrite conflicts without asking
 ```
 
-`install.sh` copies; it creates no symlinks.
+Files are copied, never linked. **Mirrored** files are overwritten on every
+run: the shell files into `~`, `bin/el` into `~/.local/bin`, the rest under
+`$XDG_CONFIG_HOME` (default `~/.config`). A mirrored directory loses the files
+the repository dropped and keeps the ones it never had (kitty's
+`current-theme.conf`, say). `zsh/p10k.zsh` is **seeded**: copied once, since
+`p10k configure` rewrites it; copy a change back here to keep it. The init
+file gdb reads gets a **managed block** at its top (pwndbg's location and
+`presets.py`), with a `.bak-STAMP` of the previous file. `git/gitconfig` is
+**included** from the global git config by its absolute path, so a moved
+checkout needs `install.sh` again.
 
-- **Mirrored** (overwritten on every run): zshrc, zshenv, zprofile, bashrc,
-  npmrc and iex.exs into `~`; `bin/el` into `~/.local/bin`; `zsh/config` into
-  `~/.config/zsh`; `shell`, `kitty`, `fastfetch` and `tmux/tmux.conf` into
-  `$XDG_CONFIG_HOME`; the two files in `gdb/` into `$XDG_CONFIG_HOME/gdb`;
-  `node/repl.js` into `$XDG_CONFIG_HOME/node` and `node/node.sh` into
-  `$XDG_CONFIG_HOME/profile.d`.
-  Mirrored directories lose files the repository no longer has. A symlink
-  left by an older install is replaced. Edit here, then re-run.
-- **Seeded** (copied once): `zsh/p10k.zsh` to `~/.p10k.zsh`, because
-  `p10k configure` rewrites it and would write through a link into the
-  repository. A diverged copy is reported and left alone; copy it back here to
-  keep the change.
-- **Included**: `git/gitconfig` is added to `include.path` in `~/.gitconfig`
-  as an absolute path into this checkout. Moving the checkout breaks the
-  include; re-run `install.sh` after a move.
-- **Managed block**: the init file gdb reads (normally `~/.gdbinit`) starts
-  with a block that records where pwndbg's `gdbinit.py` is and sources
-  `presets.py`. A `source .../pwndbg/gdbinit.py` line elsewhere in the file,
-  which pwndbg's `setup.sh` appends, is moved into the block, and the old
-  inline debug-max block is dropped. Other blocks are left alone; the previous
-  file is kept as `.bak-STAMP` whenever something changes.
+A target holding content this repository did not install (another tool's
+edit, or a file that was there first) is a **conflict**: the diff is shown,
+line-numbered, and the answer decides: `y` overwrites, `n` keeps the file and
+stops there, `a` overwrites it and every later conflict. Without a terminal
+to ask on, the install stops; `--force` answers `a` up front. Ours means: the
+same as the repository, any version committed here, or what the last run
+recorded in `~/.local/state/dotfiles-terminal/installed`.
 
-`bootstrap.sh` clones Oh My Zsh with powerlevel10k, zsh-autosuggestions and
-zsh-syntax-highlighting into its custom directory (Oh My Zsh does not load the
-Arch-packaged plugins from `/usr/share`), clones the nvim configuration to
-`~/nvim-config` and links it as `~/.config/nvim` (from `NVIM_CONFIG_URL`, or
-the `gh` login's `nvim-config`), and makes zsh the login shell. Existing clones
-are fast-forwarded, never replaced.
+The install also stops, before writing anything, when the premise is not met,
+when `ZDOTDIR` would make zsh ignore `~/.zshrc`, when `XDG_CONFIG_HOME` differs
+between this shell and the systemd user manager, or when
+`KITTY_CONFIG_DIRECTORY` points elsewhere. Exit status: 0 everything applied
+and current, 1 stopped or a step left undone (named in the summary), 2 usage.
+
+`sudo el` needs a root-owned copy in sudo's `secure_path`; the script never
+runs sudo, so it prints the command, and exits 1, while that copy is missing
+or stale:
+
+```sh
+sudo install -m 0755 -o root -g root bin/el /usr/local/bin/el
+```
 
 ## Shell notes
 
-- `zshenv` and `bashrc` append `~/.local/bin`, `~/.cargo/bin`, `~/.elan/bin` and
-  `~/.ghcup/bin` to PATH, so pacman-owned binaries always win over
-  user-installed duplicates. `~/.cargo/env` and `~/.ghcup/env` are not sourced;
-  they only prepend.
-- Both shells source every `~/.config/profile.d/*.sh` owned by this user and
-  not writable by group or others. Tools put their environment there, as
-  `node/node.sh` does.
-- History is 500000 entries in both shells; bash also gets `histappend` so
-  concurrent sessions do not overwrite each other.
-- `el` is `eza --icons -al` as a script, `bin/el`, found through PATH. sudo
-  looks for commands only in its `secure_path`, so `sudo el` needs a
-  root-owned copy there. Install it once, and again after `bin/el` changes;
-  `install.sh` prints the command while that copy is missing or stale:
-
-  ```sh
-  sudo install -m 0755 -o root -g root bin/el /usr/local/bin/el
-  ```
-
-  Every sudo form then works (`sudo -u USER el`, `el` in a `sudo -i` shell),
-  and root runs only root-owned files: the script never reads or runs
-  anything from the invoking user's home. When sudo drops `LS_COLORS`, the
-  script rebuilds it with `dircolors`, as Oh My Zsh does; `~/.dircolors` is
-  read only if it is a regular file owned by the user running `el`. An eza
-  that fails to start is passed over for `/usr/local/bin/eza` or
-  `/usr/bin/eza`; with none left it runs `ls -lAh` and says why on stderr.
-- Vi-mode yanks (`y`, `yy`, `Y`) in zsh also copy to the first working
-  clipboard: wl-copy, xclip, xsel, pbcopy, tmux, or OSC 52 on a terminal known
-  to accept it.
-- `zsh/config/caps-lock.zsh` adds a right-prompt CAPS LOCK segment. A
-  background loop polls `/sys/class/leds/*::capslock/brightness` every 200 ms
-  while the shell lives (`CAPSLOCK_LED_PATHS`, `CAPSLOCK_POLL_CS` override).
-  It disables itself without LED nodes or without p10k.
+- `zshenv` and `bashrc` append `~/.local/bin`, `~/.cargo/bin`, `~/.elan/bin`
+  and `~/.ghcup/bin` to PATH, so pacman's binaries win over user-installed
+  duplicates; `~/.cargo/env` and `~/.ghcup/env` prepend and are not sourced.
+- Both shells source the `~/.config/profile.d/*.sh` files this user owns and
+  others cannot write; `node/node.sh` goes there.
+- History holds 500000 entries in both shells; bash appends, so concurrent
+  sessions do not overwrite each other.
+- `el` is `eza --icons -al`. Root runs only root-owned files: it reads nothing
+  from the invoking user's home, except `~/.dircolors` when that is a regular
+  file owned by the user running it. An eza that fails to start is passed
+  over for `/usr/local/bin/eza` or `/usr/bin/eza`, then `ls -lAh`.
+- Vi-mode yanks in zsh also reach the first clipboard that works: wl-copy,
+  xclip, xsel, pbcopy, tmux, or OSC 52 on a terminal known to accept it.
+- `caps-lock.zsh` adds a CAPS LOCK segment to the right prompt, polling
+  `/sys/class/leds/*::capslock/brightness` every 200 ms
+  (`CAPSLOCK_LED_PATHS`, `CAPSLOCK_POLL_CS`); without LED nodes or p10k it
+  stays off.
+- kitty's scrollback pager (ctrl+shift+h, ctrl+shift+g) is nvim on a file in
+  nvim's private temporary directory, removed when it exits.
 
 ## Git
 
-`git/gitconfig` has no `user.name` or `user.email`, and nothing sets them.
-Set them once, by hand:
-
-```sh
-git config --global user.name  'Your Name'
-git config --global user.email 'you@example.com'
-```
-
-There is no plaintext `credential.helper`; GitHub credentials come from
-`gh auth git-credential`.
+`git/gitconfig` carries no identity; set `user.name` and `user.email` by hand
+in `~/.gitconfig`. GitHub credentials come only from `gh auth git-credential`.
 
 ## gdb
 
 `presets.py` decides inside gdb what it loads, so the terminal, kbuildlab,
-nvim and VS Code all get the same rule.
+nvim and VS Code get the same rule:
 
-- **stock**: pwndbg. When pwndbg's `gdbinit.py` or its virtualenv is missing,
-  plain gdb and one line saying why; pwndbg's own loader would end gdb with
-  `os._exit` instead.
-- **linux_kernel**: stock plus `debug-max.gdb` (print limits lifted, history
-  kept, `maxfork`, `logon`, `syscatch`). Applied when `GDBTOOLS_AUTO` is set,
-  as kbuildlab, the nvim kernel adapter and the VS Code wrapper do, or when a
-  Linux Kernel image or module is loaded: an ELF with
-  `.gnu.linkonce.this_module`, or with `.init.text` and `__ksymtab` or
-  `__param`.
-- `GDB_PRESET=stock` or `GDB_PRESET=linux_kernel` overrides the choice;
-  `gdb -nx` reads no init file at all.
+- **stock**: pwndbg, or plain gdb with one line saying why when its
+  `gdbinit.py` or virtualenv is missing (pwndbg's own loader would end gdb).
+- **linux_kernel**: stock plus `debug-max.gdb` (limits lifted, history kept,
+  `maxfork`, `logon`, `syscatch`), when `GDBTOOLS_AUTO` is set or a Linux
+  Kernel image or module is loaded (`.gnu.linkonce.this_module`, or
+  `.init.text` with `__ksymtab` or `__param`).
+- `GDB_PRESET=stock|linux_kernel` overrides; `gdb -nx` reads no init file.
 
-pwndbg sets `auto-load safe-path` to `/`, which runs any `.gdbinit` in the
-working directory and any `*-gdb.py` beside a loaded file, such as one
-shipped next to an untrusted binary. `presets.py` puts back the value in force
-before pwndbg loaded, gdb's default here; the kbuildlab block below it then
-adds the kernel research tree, so `lx-*` still loads there. Anywhere else gdb
-declines and says how to allow the path.
+pwndbg sets `auto-load safe-path` to `/`, which would run any `.gdbinit` in
+the working directory and any `*-gdb.py` beside a loaded file; `presets.py`
+puts back the value in force before it, and the kbuildlab block after it adds
+the kernel tree, so `lx-*` still loads there. pwndbg is sourced before anything
+imports gdb's Python package, so an Arch cross gdb whose package lags
+gdb-common still starts it.
 
-pwndbg is sourced before anything imports gdb's Python package, so an Arch
-cross gdb whose package lags gdb-common still starts pwndbg.
+## node and IEx
 
-## node and iex
+`hex`, `oct` and `bin` print a number in that base and return it, so they nest
+in arithmetic; a single character stands for its code point (`hex("A")` is
+`0x41`). In node they exist only in an interactive REPL, never under `-e`,
+`-p`, a script or a worker. A project's own `.iex.exs` replaces this one
+unless it calls `import_file("~/.iex.exs")`.
 
-`hex`, `oct` and `bin` print a number in that base and return it, so they
-nest in arithmetic. A project's own `.iex.exs` replaces this one unless it
-calls `import_file("~/.iex.exs")`.
+## Checks
 
-In node they exist only in an interactive REPL. `node.sh` adds `--require`
-of `repl.js` to `NODE_OPTIONS`, and `repl.js` defines nothing under `-e`,
-`-p`, a script or a worker, nor over a global of the same name. A single
-character stands for its code point, so `hex("A")` is `0x41`.
+```sh
+tests/run.sh    # shellcheck, zsh/python/node syntax, then install.sh on a temporary HOME
+```
 
-## Requirements
+The installer suite never touches the real HOME: each case runs on its own
+temporary home and a copy of this checkout, with stand-ins for systemctl,
+gdb and fc-list, and answers conflicts through a pty.
 
-- kitty expects CaskaydiaCove Nerd Font Mono and Pretendard (Hangul, via
-  `symbol_map`). Without them the alignment of mixed lines drifts.
-- tmux copy-mode yanks through `wl-copy`.
-- There is one prompt, powerlevel10k; the Caps Lock segment uses its API.
-- `el` expects eza and falls back to `ls` without it.
-- The gdb presets load pwndbg from wherever its `setup.sh` registered it,
-  `~/pwndbg` or `/usr/share/pwndbg`; without pwndbg, gdb runs plain.
+Third-party files (the p10k configuration, the spaceduck palette, the search
+kitten) keep their own licenses; see `THIRD-PARTY-NOTICES`.
