@@ -1,6 +1,12 @@
+# Fedora and RHEL build bash without a system bashrc and leave /etc/bashrc to
+# this file, as their /etc/skel/.bashrc does (completion, command-not-found,
+# vte.sh); Arch, Debian and openSUSE read theirs themselves and have none.
+[ -r /etc/bashrc ] && . /etc/bashrc
+
 # Before the guard: a non-interactive login bash reads this too, through the
-# ~/.bash_profile from /etc/skel (~/.profile on Debian). User bin directories
-# last, as in zsh (shell/path.sh).
+# ~/.bash_profile from /etc/skel. User bin directories last, as in zsh
+# (shell/path.sh). Debian's and Ubuntu's ~/.profile puts ~/.local/bin in front
+# after sourcing this, so a login bash there keeps it first.
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/path.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/path.sh"
 
 [[ $- != *i* ]] && return

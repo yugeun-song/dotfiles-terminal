@@ -89,7 +89,10 @@ sudo install -m 0755 -o root -g root bin/el /usr/local/bin/el
   `~/.elan/bin` and `~/.ghcup/bin` last in PATH, so the distribution's
   binaries win over user-installed duplicates; `~/.cargo/env` and
   `~/.ghcup/env` prepend and are not sourced. It drops empty entries (the
-  current directory).
+  current directory). Debian's and Ubuntu's `~/.profile` puts `~/.local/bin`
+  in front again after reading `bashrc`, so a login bash there keeps it first.
+- `bashrc` reads `/etc/bashrc` where it exists: Fedora and RHEL leave their
+  system bashrc to the user's file.
 - Both shells source the `~/.config/profile.d/*.sh` files this user owns and
   others cannot write; `node/node.sh` goes there.
 - History holds 500000 entries in both shells; bash appends, so concurrent
