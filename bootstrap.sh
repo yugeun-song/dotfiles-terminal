@@ -19,18 +19,32 @@ CUSTOM=${ZSH_CUSTOM:-$ZSH_DIR/custom}
 USER_NAME=${USER:-$(id -un)}
 
 # Only changing the login shell needs root; the keepalive stops sudo timing
-# out mid-run.
+# out mid-run, and runs only while this script does: a killed run left it
+# renewing the timestamp every 50 s.
 sudo_keepalive=
+sudo_asked=0
 acquire_sudo() {
     [[ $EUID -eq 0 ]] && return 0
     command -v sudo >/dev/null 2>&1 || return 1
     sudo -n true 2>/dev/null && return 0
     sudo -v 2>/dev/null || return 1
-    ( while true; do sudo -n true 2>/dev/null; sleep 50; done ) &
+    sudo_asked=1
+    ( trap 'kill "${nap:-}" 2>/dev/null; exit 0' TERM
+      while kill -0 "$$" 2>/dev/null; do
+          sudo -n true 2>/dev/null || exit 0
+          sleep 50 & nap=$!
+          wait "$nap" || :
+      done ) &
     sudo_keepalive=$!
     return 0
 }
-cleanup() { [[ -n "$sudo_keepalive" ]] && kill "$sudo_keepalive" 2>/dev/null; return 0; }
+# The timestamp this run asked for would let anything on this terminal use
+# sudo without a password for minutes more; one that was there before stays.
+cleanup() {
+    [[ -n "$sudo_keepalive" ]] && kill "$sudo_keepalive" 2>/dev/null
+    (( sudo_asked )) && sudo -k 2>/dev/null
+    return 0
+}
 trap cleanup EXIT
 
 fail=0
