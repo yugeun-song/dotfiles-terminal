@@ -16,6 +16,10 @@
 HISTSIZE=500000
 HISTFILESIZE=500000
 HISTCONTROL=ignoreboth
+# Lines that carry a secret stay out, as in zshrc, as far as these globs go.
+# No colon in a pattern: it would split the list, and a bare * left over
+# would keep every line out.
+HISTIGNORE='*[Tt][Oo][Kk][Ee][Nn]*=?*:*[Ss][Ee][Cc][Rr][Ee][Tt]*=?*:*[Pp][Aa][Ss][Ss][Ww]*=?*:*[Pp][Aa][Ss][Ss][Pp][Hh][Rr][Aa][Ss][Ee]*=?*:*[Aa][Pp][Ii][_-][Kk][Ee][Yy]*=?*:*[Aa]uthorization[[:punct:]]*'
 HISTTIMEFORMAT='%F %T '
 shopt -s histappend
 shopt -s cmdhist

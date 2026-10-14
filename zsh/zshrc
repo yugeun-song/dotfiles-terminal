@@ -30,6 +30,24 @@ HISTFILE="$HOME/.zsh_history"
 setopt HIST_REDUCE_BLANKS
 setopt HIST_FIND_NO_DUPS
 
+# A line that carries a secret never reaches the history: an assignment to
+# a name that says what it holds (GITHUB_TOKEN=..., password=...), an HTTP
+# Authorization header, a URL with a password in it (https://user:pw@host).
+# Told by the line's form, not by guessing at values; return 1 keeps it out
+# of the file and drops it from memory after the next line. A leading space
+# keeps any line out (hist_ignore_space, from Oh My Zsh).
+_history_keeps() {
+    emulate -L zsh
+    setopt extendedglob
+    local line=${1%%$'\n'}
+    [[ $line == (#i)*(token|secret|passw(or)#d|passphrase|api[_-]#key|access[_-]#key)[a-z0-9_]#=[^[:space:]]##* ]] && return 1
+    [[ $line == (#i)*authorization:* ]] && return 1
+    [[ $line == *://[^/[:space:]@:]##:[^/[:space:]@]##@* ]] && return 1
+    return 0
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook zshaddhistory _history_keeps
+
 # Prompt config is seeded from zsh/p10k.zsh; `p10k configure` edits the copy.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
