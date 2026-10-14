@@ -1,5 +1,7 @@
-# debug-max — maximum-visibility debugging helpers (managed)
-# Sourced from ~/.bashrc and ~/.zshrc. Works in both bash and zsh.
+# debug-max: maximum-visibility debugging helpers, the shell half of
+# gdb/debug-max.gdb. Sourced by zshrc and bashrc from ~/.config/shell (it was
+# ~/.config/debug-max/debug-max.sh, a file no repository owned; install.sh
+# retires that copy). Works in both bash and zsh.
 # Goal: capture every piece of information that touches a program's execution,
 # while keeping your normal shell fast and quiet (heavy capture is opt-in).
 

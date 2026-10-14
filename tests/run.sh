@@ -20,20 +20,21 @@ if have shellcheck; then
     out=$( {
         shellcheck -x install.sh bootstrap.sh bin/el node/node.sh tests/run.sh tests/install.sh tests/fzf.sh tests/path.sh tests/history.sh
         shellcheck -s sh shell/man.sh shell/history.sh
+        shellcheck -s bash shell/debug.sh
         shellcheck shell/path.sh
         shellcheck -s bash -e SC1090,SC1091 bash/bashrc
     } 2>&1 )
-    if [[ -z $out ]]; then echo "PASS  shellcheck: 13 scripts"; else fail "shellcheck:"; echo "$out" | head -40; fi
+    if [[ -z $out ]]; then echo "PASS  shellcheck: 14 scripts"; else fail "shellcheck:"; echo "$out" | head -40; fi
 else
     echo "SKIP  shellcheck: not installed"
 fi
 
 if have zsh; then
     bad=0
-    for f in zsh/zshrc zsh/zshenv zsh/zprofile zsh/config/caps-lock.zsh zsh/p10k.zsh shell/path.sh; do
+    for f in zsh/zshrc zsh/zshenv zsh/zprofile zsh/config/caps-lock.zsh zsh/p10k.zsh shell/path.sh shell/debug.sh; do
         zsh -n "$f" || bad=1
     done
-    if (( bad )); then fail "zsh syntax"; else echo "PASS  zsh syntax: 6 files"; fi
+    if (( bad )); then fail "zsh syntax"; else echo "PASS  zsh syntax: 7 files"; fi
 else
     echo "SKIP  zsh syntax: zsh is not installed"
 fi

@@ -203,8 +203,8 @@ nvim() {
 
 [[ ! -f ${XDG_CONFIG_HOME:-$HOME/.config}/zsh/caps-lock.zsh ]] || source ${XDG_CONFIG_HOME:-$HOME/.config}/zsh/caps-lock.zsh
 
-# debug-max (managed): maximum-visibility debugging helpers
-[ -f "$HOME/.config/debug-max/debug-max.sh" ] && . "$HOME/.config/debug-max/debug-max.sh"
+# Debugging helpers (shell/debug.sh): debugmax, straceall, lastcore and more.
+[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/debug.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/debug.sh"
 
 # >>> gdbtools/kbuildlab private env (managed) >>>
 # Per-machine private settings for gdbtools/kbuildlab. The files under

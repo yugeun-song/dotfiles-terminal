@@ -455,6 +455,23 @@ remove_file() {
     CONFLICTED=0
 }
 
+# A file the shells read from outside any repository before the repository
+# took it in (shell/debug.sh was ~/.config/debug-max/debug-max.sh). It goes,
+# its directory with it once empty, when it is still a version this
+# repository has; one changed by hand stays, and is pointed out.
+retire_file() {
+    local rel=$1 dst=$2 name
+    name=$(tilde "$dst")
+    [[ -e $dst ]] || return 0
+    if ! ours "$dst" "$SRC/$rel"; then
+        NOTES+=("$name is no longer read by the shells ($rel took its place) and was changed by hand, so it stays")
+        return 0
+    fi
+    if [[ $MODE == check ]]; then todo "${YELLOW}stale $name ($rel took its place)$RESET"; return 0; fi
+    remove_file "$dst" "$name"
+    rmdir -- "${dst%/*}" 2>/dev/null || :
+}
+
 # Older installs linked into the checkout; such a link is ours to replace.
 old_link() {
     [[ -L $1 && $(readlink -f -- "$1" 2>/dev/null) == "$SRC"/* ]]
@@ -794,6 +811,7 @@ step file zsh/zshenv        "$HOME/.zshenv"
 step file zsh/zprofile      "$HOME/.zprofile"
 step file zsh/zshrc         "$HOME/.zshrc"
 step file bash/bashrc       "$HOME/.bashrc"
+step gone shell/debug.sh    "$HOME/.config/debug-max/debug-max.sh"
 step seed zsh/p10k.zsh      "$HOME/.p10k.zsh"
 step gdb  ""                "the gdb presets block"
 step git  git/gitconfig     "the global git include"
@@ -804,7 +822,7 @@ step el   bin/el            "the root copy of el in $ROOT_EL"
 group_of() {
     case ${STEP_KIND[$1]} in
         dir) tilde "${STEP_DST[$1]}" ;;
-        file|exe|seed) printf 'home files' ;;
+        file|exe|seed|gone) printf 'home files' ;;
         gdb|git) printf 'gdb and git' ;;
         *) printf '' ;;
     esac
@@ -818,6 +836,7 @@ run_step() {
               if [[ -e ${STEP_DST[i]} ]]; then ensure_executable "${STEP_DST[i]}"; fi ;;
         dir)  mirror_dir "${STEP_SRC[i]}" "${STEP_DST[i]}" ;;
         seed) seed_file "${STEP_SRC[i]}" "${STEP_DST[i]}" ;;
+        gone) retire_file "${STEP_SRC[i]}" "${STEP_DST[i]}" ;;
         gdb)  gdb_presets ;;
         git)  git_include ;;
         el)   el_root_copy ;;
@@ -836,7 +855,7 @@ finish() {
     if [[ $MODE == install ]] && (( code != 0 && STEP < ${#STEP_KIND[@]} )); then
         for (( i = STEP; i < ${#STEP_KIND[@]}; i++ )); do
             case ${STEP_KIND[i]} in
-                dir|file|exe|seed) rest+=("$(tilde "${STEP_DST[i]}")") ;;
+                dir|file|exe|seed|gone) rest+=("$(tilde "${STEP_DST[i]}")") ;;
                 *) rest+=("${STEP_DST[i]}") ;;
             esac
         done

@@ -41,8 +41,8 @@ unset _f
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh"
 [ -r "$HOME/.config/byobu/prompt" ] && . "$HOME/.config/byobu/prompt"   #byobu-prompt#
 
-# debug-max (managed): maximum-visibility debugging helpers
-[ -f "$HOME/.config/debug-max/debug-max.sh" ] && . "$HOME/.config/debug-max/debug-max.sh"
+# Debugging helpers (shell/debug.sh): debugmax, straceall, lastcore and more.
+[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/debug.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/debug.sh"
 
 # >>> gdbtools/kbuildlab private env (managed) >>>
 # Per-machine private settings for gdbtools/kbuildlab. The files under

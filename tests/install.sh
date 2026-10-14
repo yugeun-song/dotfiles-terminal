@@ -359,6 +359,24 @@ printf "XDG_CONFIG_HOME=\$'%s'\n" "$T/home/my config" >"$T/session-env"
 run_with XDG_CONFIG_HOME="$T/home/my config" -- --check
 lacks "a quoted session value equal to this shell's is no mismatch" "$out" "XDG_CONFIG_HOME differs"
 
+# ---- the debug helpers' old place ----
+# A copy this repository wrote goes with its directory; one changed by hand
+# stays, and is pointed out.
+setup
+mkdir -p "$T/home/.config/debug-max"
+cp "$T/repo/shell/debug.sh" "$T/home/.config/debug-max/debug-max.sh"
+run
+has "the old copy goes" "$out" "removed ~/.config/debug-max/debug-max.sh"
+if [[ -e "$T/home/.config/debug-max" ]]; then fail "its empty directory stays"; else pass; fi
+has "the shells read it from the shell directory" "$(cat "$T/home/.zshrc")" '/shell/debug.sh'
+setup
+mkdir -p "$T/home/.config/debug-max"
+{ cat "$T/repo/shell/debug.sh"; echo 'alias mine=true'; } >"$T/home/.config/debug-max/debug-max.sh"
+run
+if [[ -e "$T/home/.config/debug-max/debug-max.sh" ]]; then pass; else fail "a changed copy is kept"; fi
+# shellcheck disable=SC2088 # the installer prints the ~ itself
+has "and pointed out" "$out" "~/.config/debug-max/debug-max.sh is no longer read by the shells"
+
 if (( failed )); then
     echo "FAIL  install: $failed of $((passed + failed)) checks"
     exit 1

@@ -117,6 +117,12 @@ RHEL's default `secure_path` lacks `/usr/local/bin`; there, add it or call
   `/sys/class/leds/*::capslock/brightness` every 200 ms
   (`CAPSLOCK_LED_PATHS`, `CAPSLOCK_POLL_CS`); without LED nodes or p10k it
   stays off.
+- `shell/debug.sh` (both shells) holds the debugging helpers: `debugmax`,
+  `straceall`, `ltraceall`, `lddebug`, `perfstat`, `norand`, `lastcore`,
+  `elfinfo` (`debughelp` lists them). It keeps cores on (`ulimit -c
+  unlimited`) for what runs from a terminal and points `DEBUGINFOD_URLS` at
+  Arch's server. It replaces `~/.config/debug-max/debug-max.sh`, which no
+  repository owned; `install.sh` removes that copy.
 - kitty's scrollback pager (ctrl+shift+h, ctrl+shift+g) is nvim on a file in
   nvim's private temporary directory, removed when it exits, and without
   shada, so nothing searched or yanked there reaches nvim's history file.
