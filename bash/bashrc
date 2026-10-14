@@ -45,9 +45,11 @@ unset _f
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/debug.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/debug.sh"
 
 # >>> gdbtools/kbuildlab private env (managed) >>>
-# Per-machine private settings for gdbtools/kbuildlab. The files under
-# ~/.config/{gdbtools,kbuildlab}/env are untracked; keep private values there,
-# not in the public checkouts. Absent files are a no-op.
+# Per-machine settings for gdbtools/kbuildlab (GDBTOOLS_*, KBL_*), the file
+# kbuildlab's README says the shell sources. The files under
+# ~/.config/{gdbtools,kbuildlab}/env are untracked, so the values stay out of
+# the public checkouts; they are not for secrets, since every shell exports
+# them to everything it starts. Absent files are a no-op.
 for _f in "${XDG_CONFIG_HOME:-$HOME/.config}/gdbtools/env" \
           "${XDG_CONFIG_HOME:-$HOME/.config}/kbuildlab/env"; do
     [ -r "$_f" ] && . "$_f"
