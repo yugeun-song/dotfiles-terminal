@@ -118,7 +118,8 @@ RHEL's default `secure_path` lacks `/usr/local/bin`; there, add it or call
   (`CAPSLOCK_LED_PATHS`, `CAPSLOCK_POLL_CS`); without LED nodes or p10k it
   stays off.
 - kitty's scrollback pager (ctrl+shift+h, ctrl+shift+g) is nvim on a file in
-  nvim's private temporary directory, removed when it exits.
+  nvim's private temporary directory, removed when it exits, and without
+  shada, so nothing searched or yanked there reaches nvim's history file.
 
 ## Git
 
