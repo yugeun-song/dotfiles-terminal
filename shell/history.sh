@@ -3,7 +3,7 @@
 # node, a password in a psql session) lasts the session, not for good. The
 # shells' own histories stay on disk (zshrc, bashrc), less the lines that
 # carry a secret. Without a runtime directory each keeps its default.
-# Sourced by both shells from profile.d, never run.
+# Sourced by zshenv and bashrc, never run.
 # shellcheck shell=sh
 if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "$XDG_RUNTIME_DIR" ]; then
     export NODE_REPL_HISTORY="$XDG_RUNTIME_DIR/node_repl_history"

@@ -6,6 +6,8 @@ export npm_config_prefix="$HOME/.local"
 # zshrc, so scripts resolve alike.
 typeset -U path
 [[ -r ${XDG_CONFIG_HOME:-$HOME/.config}/shell/path.sh ]] && . ${XDG_CONFIG_HOME:-$HOME/.config}/shell/path.sh
+# REPL and pager histories in the runtime directory (shell/history.sh).
+[[ -r ${XDG_CONFIG_HOME:-$HOME/.config}/shell/history.sh ]] && . ${XDG_CONFIG_HOME:-$HOME/.config}/shell/history.sh
 
 # Per-tool drop-ins, only from files this user owns that group and others
 # cannot write.

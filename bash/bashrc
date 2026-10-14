@@ -8,6 +8,8 @@
 # (shell/path.sh). Debian's and Ubuntu's ~/.profile puts ~/.local/bin in front
 # after sourcing this, so a login bash there keeps it first.
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/path.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/path.sh"
+# As zshenv: REPL and pager histories in the runtime directory.
+[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/history.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/history.sh"
 
 [[ $- != *i* ]] && return
 

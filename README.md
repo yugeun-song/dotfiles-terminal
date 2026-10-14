@@ -97,15 +97,15 @@ RHEL's default `secure_path` lacks `/usr/local/bin`; there, add it or call
 - `bashrc` reads `/etc/bashrc` where it exists: Fedora and RHEL leave their
   system bashrc to the user's file.
 - Both shells source the `~/.config/profile.d/*.sh` files this user owns and
-  others cannot write; `node/node.sh` and `shell/history.sh` go there.
+  others cannot write; `node/node.sh` goes there.
 - History holds 500000 entries in both shells; bash appends, so concurrent
   sessions do not overwrite each other. A line that carries a secret is never
   saved: an assignment to a name like `*_TOKEN`, `password` or `API_KEY`, an
   `Authorization:` header, and in zsh a URL with a password in it; a leading
   space keeps any line out.
 - REPL, database-shell and pager histories (node, python, psql, sqlite,
-  mysql, redis-cli, less) live in `$XDG_RUNTIME_DIR` (`shell/history.sh`), so
-  they last the session; what is already in `~/.node_repl_history`,
+  mysql, redis-cli, less) live in `$XDG_RUNTIME_DIR` (`shell/history.sh`, read
+  by `zshenv` and `bashrc`), so they last the session; what is already in `~/.node_repl_history`,
   `~/.python_history` or `~/.local/state/lesshst` stays until removed.
 - `el` is `eza --icons -al`. Root runs only root-owned files: it reads nothing
   from the invoking user's home, except `~/.dircolors` when that is a regular

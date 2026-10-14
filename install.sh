@@ -783,7 +783,6 @@ step file node/repl.js      "$CONFIG/node/repl.js"
 # NODE_OPTIONS reaches every node, scripts included; repl.js defines nothing
 # outside an interactive REPL.
 step file node/node.sh      "$CONFIG/profile.d/node.sh"
-step file shell/history.sh  "$CONFIG/profile.d/history.sh"
 # File by file: mirroring the directory would prune a gdbinit kept there.
 step file gdb/presets.py    "$CONFIG/gdb/presets.py"
 step file gdb/debug-max.gdb "$CONFIG/gdb/debug-max.gdb"
