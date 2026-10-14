@@ -149,6 +149,21 @@ def _gdb_presets(here):
     except Exception as error:
         say("could not restore the auto-load safe-path: %s" % error)
 
+    # One history file for every session. pwndbg turns saving on, and gdb's
+    # default file is .gdb_history in whatever directory it started in, so
+    # kernel trees and projects collected one each, where a commit could
+    # carry it. GDBHISTFILE, gdb's own variable, still names another; gdb
+    # reads the file named here at its first prompt, so this one is read too.
+    if not os.environ.get("GDBHISTFILE"):
+        state = os.environ.get("XDG_STATE_HOME", "")
+        if not state.startswith("/"):
+            state = os.path.expanduser("~/.local/state")
+        try:
+            os.makedirs(os.path.join(state, "gdb"), mode=0o700, exist_ok=True)
+            gdb.execute("set history filename " + os.path.join(state, "gdb", "history"))
+        except Exception as error:
+            say("could not move gdb's history file: %s" % error)
+
     choice = os.environ.get("GDB_PRESET", "")
     if choice not in ("", "stock", "linux_kernel"):
         say("GDB_PRESET=%s is neither stock nor linux_kernel; choosing automatically" % choice)

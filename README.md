@@ -138,6 +138,9 @@ nvim and VS Code get the same rule:
   Kernel image or module is loaded (`.gnu.linkonce.this_module`, or
   `.init.text` with `__ksymtab` or `__param`).
 - `GDB_PRESET=stock|linux_kernel` overrides; `gdb -nx` reads no init file.
+- History goes to one file, `~/.local/state/gdb/history` (`XDG_STATE_HOME`),
+  not to `.gdb_history` in whatever directory gdb started in, where a commit
+  could carry it; `GDBHISTFILE` still names another.
 
 pwndbg sets `auto-load safe-path` to `/`, which would run any `.gdbinit` in
 the working directory and any `*-gdb.py` beside a loaded file; `presets.py`
