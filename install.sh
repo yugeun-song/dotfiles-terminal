@@ -765,7 +765,7 @@ doctor() {
     local -a missing=()
     for tool in "eza:el" "fzf:Ctrl-R and Ctrl-T in zsh" "tmux:tmux.conf" "wl-copy:tmux and zsh vi-mode yanks" \
                 "gdb:the gdb presets" "node:the node REPL helpers" "iex:the IEx helpers" \
-                "fastfetch:fastfetch/config.jsonc" "gh:git credentials for GitHub"; do
+                "fastfetch:fastfetch/config.jsonc" "yazi:yazi/theme.toml" "gh:git credentials for GitHub"; do
         command -v "${tool%%:*}" >/dev/null 2>&1 || missing+=("${tool%%:*} (${tool#*:})")
     done
     if (( NO_PWNDBG )); then missing+=("pwndbg in ~/pwndbg or /usr/share/pwndbg (gdb runs plain)"); fi
@@ -796,6 +796,7 @@ step dir  zsh/config        "$CONFIG/zsh"
 step dir  shell             "$CONFIG/shell"
 step dir  kitty             "$CONFIG/kitty"
 step dir  fastfetch         "$CONFIG/fastfetch"
+step dir  yazi              "$CONFIG/yazi"
 step file node/repl.js      "$CONFIG/node/repl.js"
 # NODE_OPTIONS reaches every node, scripts included; repl.js defines nothing
 # outside an interactive REPL.

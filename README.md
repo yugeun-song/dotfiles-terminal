@@ -17,9 +17,9 @@ checks the premise first and writes nothing when it is not met, an
 unrecognised distribution included. Within it, the files adapt: fzf's two
 scripts come from the distribution's files, or from `fzf --zsh` where those
 are incomplete; pwndbg from `~/pwndbg` or `/usr/share/pwndbg`. Optional
-tools (eza, fzf, tmux, wl-copy, gdb, pwndbg, node, IEx, fastfetch, gh, the
-two fonts) are listed by the closing doctor line when missing; each feature
-does without its tool.
+tools (eza, fzf, tmux, wl-copy, gdb, pwndbg, node, IEx, fastfetch, yazi, gh,
+the two fonts) are listed by the closing doctor line when missing; each
+feature does without its tool.
 
 ## Layout
 
@@ -29,7 +29,7 @@ bash/         bashrc, for rescue shells and containers
 shell/        path.sh (PATH order) and man.sh (man page settings), for both shells
 bin/          el: eza's long listing as a script sudo can run
 kitty/        kitty.conf, the spaceduck palette, the scrollback search kitten
-tmux/ npm/ fastfetch/ git/ gdb/ node/ iex/
+tmux/ npm/ fastfetch/ yazi/ git/ gdb/ node/ iex/
 install.sh    places the files (below)
 bootstrap.sh  clones what is not a file here, sets the login shell
 tests/        run.sh: static checks, the fzf lookup, the installer suite
