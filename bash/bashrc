@@ -39,6 +39,7 @@ for _f in "${XDG_CONFIG_HOME:-$HOME/.config}"/profile.d/*.sh; do
 done
 unset _f
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh"
+[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/ssh.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/ssh.sh"
 [ -r "$HOME/.config/byobu/prompt" ] && . "$HOME/.config/byobu/prompt"   #byobu-prompt#
 
 # Debugging helpers (shell/debug.sh): debugmax, straceall, lastcore and more.

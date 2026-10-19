@@ -58,6 +58,7 @@ export EDITOR=nvim
 export VISUAL=nvim
 
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh"
+[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/ssh.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/ssh.sh"
 
 autoload -Uz add-zle-hook-widget edit-command-line
 

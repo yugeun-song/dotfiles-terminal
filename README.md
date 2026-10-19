@@ -26,9 +26,9 @@ feature does without its tool.
 ```
 zsh/          zshrc, zshenv, zprofile, p10k.zsh (the prompt), config/caps-lock.zsh
 bash/         bashrc, for rescue shells and containers
-shell/        path.sh (PATH order) and man.sh (man page settings), for both shells
+shell/        path.sh (PATH order), man.sh, ssh.sh (ssh in kitty), for both shells
 bin/          el: eza's long listing as a script sudo can run
-kitty/        kitty.conf, the spaceduck palette, the scrollback search kitten
+kitty/        kitty.conf, ssh.conf, the spaceduck palette, the search kitten
 tmux/ npm/ fastfetch/ yazi/ git/ gdb/ node/ iex/
 install.sh    places the files (below)
 bootstrap.sh  clones what is not a file here, sets the login shell
@@ -126,6 +126,10 @@ RHEL's default `secure_path` lacks `/usr/local/bin`; there, add it or call
 - kitty's scrollback pager (ctrl+shift+h, ctrl+shift+g) is nvim on a file in
   nvim's private temporary directory, removed when it exits, and without
   shada, so nothing searched or yanked there reaches nvim's history file.
+- Inside kitty, interactive `ssh` runs kitty's ssh kitten (remote shell
+  integration, `kitten`, terminfo); `command ssh` bypasses it. `kitty/ssh.conf`
+  turns connection sharing off and sends loopback hosts (kbuildlab's guests
+  cannot unpack the kitten's archive) to plain ssh as `xterm-256color`.
 
 ## Git
 

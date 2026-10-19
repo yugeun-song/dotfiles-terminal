@@ -130,7 +130,7 @@ before=$(tree)
 run; is "re-run" "$code" 0
 has "re-run installs nothing" "$out" "everything is in place (0 written,"
 # shellcheck disable=SC2088 # the installer prints the ~ itself
-has "an unchanged directory is one line" "$out" "~/.config/kitty  4 unchanged"
+has "an unchanged directory is one line" "$out" "~/.config/kitty  5 unchanged"
 is "re-run touches nothing" "$(tree | grep -v '/dotfiles-terminal/lock ')" "$(grep -v '/dotfiles-terminal/lock ' <<<"$before")"
 run --check; is "--check when current" "$code" 0
 has "--check says current" "$out" "everything installed is current"
