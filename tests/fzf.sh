@@ -2,7 +2,9 @@
 # Runs zshrc's fzf block in zsh on a fake root, one distribution's layout at a
 # time. The block is cut out of zsh/zshrc by its first and last lines and its
 # /usr/share pointed into the fake root, so zshrc carries no test hook; a
-# change to either line fails here instead of going untested.
+# change to either line fails here instead of going untested. Its
+# FZF_DEFAULT_OPTS block, cut out the same way, then runs against an fzf that
+# takes --gutter and ones that do not.
 
 set -uo pipefail
 
@@ -78,6 +80,39 @@ check "the first directory found wins" new "usr/share/fzf/key-bindings.zsh usr/s
 check "no files: fzf --zsh" new "fzf --zsh"
 check "no files, an fzf before 0.48" old ""
 check "no files, no fzf" none ""
+
+opts=$(awk "/^export FZF_DEFAULT_OPTS='\$/ { on = 1 } on { print } on && /^fi\$/ { exit }" "$REPO/zsh/zshrc")
+if [[ $opts != "export FZF_DEFAULT_OPTS='"* || $opts != *$'\n'fi ]]; then
+    echo "FAIL  fzf block: the FZF_DEFAULT_OPTS block's first or last line changed in zsh/zshrc"
+    exit 1
+fi
+
+# fzf 0.66 and later take --gutter; fzf-new stands for 0.48 to 0.65.
+cat >"$WORK/fzf-gutter" <<'STUB'
+#!/bin/sh
+case $1 in --gutter=*) exit 0 ;; esac
+echo "unknown option: $1" >&2
+exit 2
+STUB
+chmod +x "$WORK/fzf-gutter"
+
+# $1 the case, $2 the fzf on PATH, $3 the --gutter line FZF_DEFAULT_OPTS should
+# end up with.
+gutter() {
+    local name=$1 fzf=$2 want=$3 root got
+    root=$(mktemp -d "$WORK/root.XXXXXX")
+    mkdir -p "$root/bin"
+    if [[ $fzf != none ]]; then cp "$WORK/fzf-$fzf" "$root/bin/fzf"; fi
+    # shellcheck disable=SC2016 # zsh expands it
+    got=$(env -i HOME="$root" PATH="$root/bin" "$ZSH_BIN" -f -c \
+        "$opts"$'\n''print -rn -- ${(M)${(f)FZF_DEFAULT_OPTS}:#--gutter*}' 2>&1)
+    is "$name" "$got" "$want"
+}
+
+gutter "an fzf that takes --gutter: a blank gutter" gutter "--gutter=' '"
+gutter "an fzf before 0.66: no --gutter" new ""
+gutter "an fzf before 0.48: no --gutter" old ""
+gutter "no fzf: no --gutter" none ""
 
 if (( failed )); then
     echo "FAIL  fzf block: $failed of $((passed + failed)) checks"

@@ -165,8 +165,10 @@ elif [[ -n $_fzf_dir ]]; then
 fi
 unset _fzf_dir _fzf_init _d
 
-# Colors from Spaceduck (https://github.com/pineapplegiant/spaceduck),
-# matching kitty/spaceduck.conf.
+# Palette slots rather than fixed colors, so fzf follows the terminal's theme
+# (under kitty/spaceduck.conf these are Spaceduck's). No slot shades every
+# background, so the current line keeps the terminal's; fzf 0.66 and later
+# would then paint the gutter in the foreground, and older ones reject --gutter.
 export FZF_DEFAULT_OPTS='
 --layout=reverse
 --height=50%
@@ -174,10 +176,13 @@ export FZF_DEFAULT_OPTS='
 --margin=1,5
 --prompt="🔍 "
 --pointer="▶"
---color=bg:#0F111B,bg+:#1B1C36,fg:#ECF0C1,fg+:#FFFFFF
---color=hl:#5CCC96,hl+:#5CCC96,info:#F2CE00,border:#686F9A,header:#B3A1E6
---color=prompt:#F2CE00,pointer:#5CCC96,marker:#E39400,spinner:#F2CE00
+--color=16,fg:-1,bg:-1,fg+:-1:bold,bg+:-1
+--color=hl:2,hl+:2,info:5,border:8,header:3
+--color=prompt:5,pointer:2,marker:1,spinner:5
 '
+if (( $+commands[fzf] )) && FZF_DEFAULT_OPTS= FZF_DEFAULT_OPTS_FILE= fzf --gutter=' ' --version >/dev/null 2>&1; then
+    FZF_DEFAULT_OPTS+="--gutter=' '"
+fi
 
 alias peaclock-spotify='peaclock --config ~/.peaclock/config/color_spotify'
 alias peaclock-cyan='peaclock --config ~/.peaclock/config/color_cyan'
