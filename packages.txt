@@ -1,0 +1,29 @@
+# What these files configure or call, from Arch's official repositories:
+# packages.sh installs the missing ones before install.sh checks its premise.
+# Oh My Zsh, powerlevel10k, its two plugins and pwndbg come from git
+# (bootstrap.sh, ~/pwndbg), not from here.
+
+# The premise.
+zsh
+kitty
+neovim
+git
+
+# Optional: each feature does without its tool (the doctor names it).
+eza
+fzf
+tmux
+wl-clipboard
+gdb
+nodejs
+npm
+elixir
+fastfetch
+yazi
+github-cli
+glow
+ltrace
+strace
+perf
+man-db
+ttf-cascadia-code-nerd

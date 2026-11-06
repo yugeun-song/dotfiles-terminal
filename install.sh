@@ -902,6 +902,18 @@ on_error() {
 
 printf '%sdotfiles-terminal%s  %s%s %s%s\n' "$BOLD$CYAN" "$RESET" "$DIM" \
     "$([[ $MODE == check ]] && echo checking || echo installing into)" "$(tilde "$HOME")" "$RESET"
+# Packages before the premise: on a fresh machine they are what meets it.
+if [[ $MODE == check ]]; then
+    "$SRC/packages.sh" --check || true
+else
+    packages_status=0
+    "$SRC/packages.sh" || packages_status=$?
+    case $packages_status in
+        0) ;;
+        3) NOTES+=("packages are missing; run ./install.sh in a terminal to install them") ;;
+        *) printf '%s✗ the packages did not install; nothing was written%s\n' "$RED" "$RESET" >&2; exit 1 ;;
+    esac
+fi
 check_premise
 if (( ${#PROBLEMS[@]} )); then
     if [[ $MODE == install ]]; then

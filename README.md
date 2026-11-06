@@ -32,6 +32,7 @@ kitty/        kitty.conf, ssh.conf, the spaceduck palette, the search kitten
 tmux/ npm/ fastfetch/ yazi/ git/ gdb/ node/ iex/
 install.sh    places the files (below)
 bootstrap.sh  clones what is not a file here, sets the login shell
+packages.txt  what install.sh installs first (packages.sh)
 tests/        run.sh: static checks, the fzf lookup, the installer suite
 ```
 
@@ -43,6 +44,11 @@ tests/        run.sh: static checks, the fzf lookup, the installer suite
 ./install.sh --check    # what is behind or conflicting; writes nothing
 ./install.sh --force    # overwrite conflicts without asking
 ```
+
+On Arch, `install.sh` first installs what `packages.txt` names and the
+system lacks (`packages.sh`: pacman, in a terminal, never a reinstall),
+since that is what meets the premise. dotfiles-desktop's `install.sh` runs
+this one as well.
 
 Each step prints a tree of what it wrote (✓) or found in conflict (✗), in
 colour on a terminal unless `NO_COLOR` is set. `bootstrap.sh` sets the login

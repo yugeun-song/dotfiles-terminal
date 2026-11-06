@@ -18,13 +18,13 @@ if have shellcheck; then
     # too, is checked as bash here and parsed by zsh below. SC1090 and SC1091:
     # bashrc sources files that exist only at run time.
     out=$( {
-        shellcheck -x install.sh bootstrap.sh bin/el node/node.sh tests/run.sh tests/install.sh tests/fzf.sh tests/path.sh tests/history.sh tests/ssh.sh
+        shellcheck -x install.sh bootstrap.sh bin/el node/node.sh tests/run.sh tests/install.sh tests/fzf.sh tests/path.sh tests/history.sh tests/ssh.sh packages.sh tests/packages.sh
         shellcheck -s sh shell/man.sh shell/history.sh shell/ssh.sh
         shellcheck -s bash shell/debug.sh
         shellcheck shell/path.sh
         shellcheck -s bash -e SC1090,SC1091 bash/bashrc
     } 2>&1 )
-    if [[ -z $out ]]; then echo "PASS  shellcheck: 16 scripts"; else fail "shellcheck:"; echo "$out" | head -40; fi
+    if [[ -z $out ]]; then echo "PASS  shellcheck: 18 scripts"; else fail "shellcheck:"; echo "$out" | head -40; fi
 else
     echo "SKIP  shellcheck: not installed"
 fi
@@ -57,6 +57,7 @@ tests/path.sh || failed=1
 tests/history.sh || failed=1
 tests/ssh.sh || failed=1
 tests/fzf.sh || failed=1
+tests/packages.sh || failed=1
 tests/install.sh || failed=1
 
 if (( failed )); then
