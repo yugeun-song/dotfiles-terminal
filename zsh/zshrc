@@ -184,13 +184,6 @@ if (( $+commands[fzf] )) && FZF_DEFAULT_OPTS= FZF_DEFAULT_OPTS_FILE= fzf --gutte
     FZF_DEFAULT_OPTS+="--gutter=' '"
 fi
 
-alias peaclock-spotify='peaclock --config ~/.peaclock/config/color_spotify'
-alias peaclock-cyan='peaclock --config ~/.peaclock/config/color_cyan'
-alias peaclock-dracula='peaclock --config ~/.peaclock/config/color_dracula_purple'
-alias peaclock-emerald='peaclock --config ~/.peaclock/config/color_emerald'
-
-alias unimatrix-safe='unimatrix -g black -c green -s 90 -a -n'
-
 # el is bin/el on PATH; the alias stands in only while that is not installed.
 (( $+commands[el] )) || alias el='eza --icons -al'
 (( $+_comps[eza] )) && compdef el=eza
