@@ -1,6 +1,11 @@
 unless Code.ensure_loaded?(IExHelpers) do
   defmodule IExHelpers do
-    @moduledoc false
+    @moduledoc """
+    Number-base and size helpers for IEx that convert as C does on x86-64 Linux (GCC, LP64).
+
+    Elixir's operators cannot be changed, so a conversion cuts where it is called and returns a
+    plain number. The result line shows the statement's value once, in the base called last.
+    """
     import Bitwise
 
     @bases [bin: {2, "0b"}, oct: {8, "0o"}, dec: {10, ""}, hex: {16, "0x"}]
@@ -48,21 +53,46 @@ unless Code.ensure_loaded?(IExHelpers) do
     @shown {__MODULE__, :shown}
 
     for name <- @names do
+      @doc "Its own name, so that `hex(x, #{name})` can name it as an option."
       def unquote(name)(), do: unquote(name)
     end
 
-    for {name, _} <- @bases do
+    for {name, {radix, prefix}} <- @bases do
+      @doc """
+      Shows `value` in base #{radix}#{if prefix != "", do: ", with a `#{prefix}` prefix"} and returns it converted.
+
+      An option is a type (`u8` to `s64`, `f32`, `f64`, `big`, or a C name such as `:int` or
+      `"unsigned long"`), which converts as a C cast does, or a base, which shows that base
+      instead. With no type an integer is cut to a `u64`, and a float keeps its fraction.
+      `true` and `false` are 1 and 0, and a one-character string is its code point.
+      """
       def unquote(name)(value), do: show(unquote(name), value, [])
       def unquote(name)(value, option), do: show(unquote(name), value, [option])
       def unquote(name)(value, option, other), do: show(unquote(name), value, [option, other])
     end
 
     for name <- @types do
+      @doc """
+      Converts `value` as C's `(#{name})value` does#{if name == :big, do: ", with no width: nothing is cut"}.
+
+      A float loses its fraction for an integer type, and what does not fit the width is cut;
+      a negative number becomes its two's complement pattern for an unsigned type.
+      """
       def unquote(name)(value), do: to(unquote(name), number(unquote(name), value))
     end
 
     for unit <- @units do
+      @doc "Its own name, so that `gb(x, #{unit})` can name it as the unit `x` is in."
       def unquote(unit)(), do: unquote(unit)
+
+      @doc """
+      Converts a size to `#{unit}`, in steps of 1024. `value` is in bytes unless a unit is among
+      the options: `#{unit}(x, gb)`, `:megabyte`, `"MiB"`.
+
+      A whole result is an integer, cut to a `u64`. When the division leaves a remainder the
+      result is a float, shown to 5 places, or to 20 when the first 5 are zeros. A type among
+      the options converts `value` first and computes as C would: the division truncates.
+      """
       def unquote(unit)(value), do: size(unquote(unit), unquote(unit), value, [])
 
       def unquote(unit)(value, option),
@@ -74,14 +104,24 @@ unless Code.ensure_loaded?(IExHelpers) do
 
     for from <- @units, to <- @units, from != to do
       name = :"#{from}_to_#{to}"
+
+      @doc "Converts `value` from `#{from}` to `#{to}`: `#{to}(value, #{from})`. An option names a type."
       def unquote(name)(value), do: size(unquote(name), unquote(to), value, [unquote(from)])
 
       def unquote(name)(value, option),
         do: size(unquote(name), unquote(to), value, [unquote(from), option])
     end
 
+    @doc """
+    Converts `value` to `type` as C's `(type)value` does. `type` is any name a helper takes:
+    `u16`, `:u16`, `:int`, `:uint32_t`, `"unsigned long"`, `:double`, `big`.
+    """
     def cast(type, value), do: to(type("cast", type), number("cast", value))
 
+    @doc """
+    The size in bytes of a type, as C's `sizeof`. A number counts as the constant it would be
+    in C: 4 for an integer that fits an `int`, else 8, and 8 for a float.
+    """
     def sizeof(value) when is_float(value), do: 8
     def sizeof(value) when is_integer(value), do: if(abs(value) < 1 <<< 31, do: 4, else: 8)
 
@@ -92,14 +132,17 @@ unless Code.ensure_loaded?(IExHelpers) do
       end
     end
 
+    @doc false
     def __reset__, do: Process.put(@shown, :none)
 
+    @doc false
     def __parse__(input, opts, state) do
       with {:ok, forms, state} <- IEx.Evaluator.parse(input, opts, state) do
         {:ok, reset(forms), state}
       end
     end
 
+    @doc false
     def __inspect__(term, opts) do
       shown = Process.get(@shown)
       if is_tuple(shown), do: Process.put(@shown, :none)

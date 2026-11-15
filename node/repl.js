@@ -2,7 +2,9 @@
 
 const { inspect } = require("node:util");
 
+/** Each base helper's radix and prefix. */
 const BASES = { bin: [2, "0b"], oct: [8, "0o"], dec: [10, ""], hex: [16, "0x"] };
+/** Each integer type's width in bits and whether it is signed, as on x86-64 Linux. */
 const INTS = Object.fromEntries(
   [8, 16, 32, 64].flatMap((bits) => [
     [`u${bits}`, [bits, false]],
@@ -11,6 +13,7 @@ const INTS = Object.fromEntries(
 );
 const FLOATS = { f32: 4, f64: 8 };
 const NAMES = [...Object.keys(BASES), ...Object.keys(INTS), ...Object.keys(FLOATS), "big"];
+/** Every spelling of a base or a type, including C's fixed names, to our name for it. */
 const KNOWN = new Map([
   ...NAMES.map((name) => [name, name]),
   ...Object.entries(INTS).map(([name, [bits, signed]]) => [
@@ -49,7 +52,9 @@ const SIZES = [
   ["long", 64],
 ];
 const BOXES = [Number, Boolean, String, BigInt];
+/** The size units, each 1024 times the one before. */
 const UNITS = ["byte", "kb", "mb", "gb", "tb"];
+/** Every spelling of a unit (`mb`, `mib`, `megabyte`, `megabytes`) to its name. */
 const SPELLED = new Map([
   ["b", "byte"],
   ["byte", "byte"],
@@ -72,12 +77,22 @@ const SPELLED = new Map([
 const helpers = new Map();
 const units = new Map();
 const extras = new Map();
+/** What the running statement has done: the last helper's name, base and type, whether the REPL is hooked, and whether a note was already written. */
 const state = { shown: null, hooked: false, noted: false };
 
+/**
+ * Writes one line to standard error, where notes go so that the result line stays clean.
+ * @param {string} message
+ */
 function note(message) {
   process.stderr.write(`${message}\n`);
 }
 
+/**
+ * Shows a value for an error message: one line, at most 80 characters.
+ * @param {unknown} value
+ * @returns {string}
+ */
 function describe(value) {
   let text;
   try {
@@ -93,6 +108,11 @@ function describe(value) {
   return text.length > 80 ? `${text.slice(0, 77)}...` : text;
 }
 
+/**
+ * Notes, once per statement, that a whole number past 2**53 is no longer exact.
+ * @param {string} name the helper that was called
+ * @param {unknown} value
+ */
 function inexact(name, value) {
   if (typeof value !== "number" || !Number.isInteger(value) || Number.isSafeInteger(value)) return;
   if (state.hooked && state.noted) return;
@@ -102,6 +122,12 @@ function inexact(name, value) {
   );
 }
 
+/**
+ * The code point of a one-character string; throws for any other length or a lone surrogate.
+ * @param {string} name
+ * @param {string} text
+ * @returns {number}
+ */
 function codePoint(name, text) {
   if (/\p{Surrogate}/u.test(text)) {
     throw new TypeError(`${name}() expects a well-formed character, got ${describe(text)}`);
@@ -116,6 +142,12 @@ function codePoint(name, text) {
   return text.codePointAt(0);
 }
 
+/**
+ * Turns a helper's input into a number or a BigInt: booleans are 1 and 0, a one-character string is its code point, boxed values are unwrapped.
+ * @param {string} name
+ * @param {unknown} input
+ * @returns {number | bigint}
+ */
 function number(name, input) {
   const value = BOXES.some((box) => input instanceof box) ? input.valueOf() : input;
 
@@ -137,6 +169,11 @@ function number(name, input) {
   }
 }
 
+/**
+ * Reads C type specifiers in any order (`unsigned long int`) as GCC does on x86-64.
+ * @param {string[]} words lower-case words
+ * @returns {string | undefined} `u8` to `s64`, or undefined when they declare no type
+ */
 function specifiers(words) {
   const counts = new Map();
   for (const word of words) counts.set(word, (counts.get(word) || 0) + 1);
@@ -149,6 +186,11 @@ function specifiers(words) {
   return `${counts.has("unsigned") ? "u" : "s"}${size ? size[1] : 32}`;
 }
 
+/**
+ * The base or type an option names: a helper function, one of our names, or a C type name.
+ * @param {unknown} option
+ * @returns {string | undefined}
+ */
 function resolve(option) {
   if (helpers.has(option)) return helpers.get(option);
   if (typeof option !== "string") return undefined;
@@ -156,12 +198,26 @@ function resolve(option) {
   return KNOWN.get(words.join(" ")) || specifiers(words);
 }
 
+/**
+ * Keeps an option of a kind, and throws when a different one of that kind was already given.
+ * @param {string} name
+ * @param {string} kind `base`, `type` or `unit`
+ * @param {string | undefined} old
+ * @param {string} key
+ * @returns {string}
+ */
 function one(name, kind, old, key) {
   if (old !== undefined && old !== key)
     throw new TypeError(`${name}() takes one ${kind}, got ${old} and ${key}`);
   return key;
 }
 
+/**
+ * Splits the options of `bin`, `oct`, `dec` and `hex` into a base and a type.
+ * @param {string} name
+ * @param {unknown[]} options
+ * @returns {[string, string | undefined]} the base (the helper's own by default) and the type
+ */
 function pick(name, options) {
   let base;
   let type;
@@ -178,6 +234,12 @@ function pick(name, options) {
   return [base || name, type];
 }
 
+/**
+ * The type an option names, for `cast` and `sizeof`; throws for a base or anything else.
+ * @param {string} name
+ * @param {unknown} option
+ * @returns {string}
+ */
 function kind(name, option) {
   const key = resolve(option);
   if (key === undefined || key in BASES) {
@@ -189,6 +251,12 @@ function kind(name, option) {
   return key;
 }
 
+/**
+ * Rounds a BigInt to the nearest float of `bits` significant bits, ties to even, in one step.
+ * @param {bigint} value
+ * @param {number} bits 24 for a float, 53 for a double
+ * @returns {number}
+ */
 function nearest(value, bits) {
   const size = value < 0n ? -value : value;
   const shift = BigInt(Math.max(size.toString(2).length - bits, 0));
@@ -197,6 +265,13 @@ function nearest(value, bits) {
   return Number(quotient << shift) * (value < 0n ? -1 : 1);
 }
 
+/**
+ * Converts as the C cast `(type)value` does. A float loses its fraction and what does not fit is cut.
+ * @param {string} name
+ * @param {string} type `u8` to `s64`, `f32`, `f64` or `big`
+ * @param {number | bigint} value
+ * @returns {number | bigint} a BigInt for a 64-bit type, for `big` and for a BigInt input
+ */
 function to(name, type, value) {
   if (type === "f32") return Math.fround(typeof value === "bigint" ? nearest(value, 24) : value);
   if (type === "f64") return Number(value);
@@ -208,6 +283,11 @@ function to(name, type, value) {
   return bits < 64 && typeof value === "number" ? Number(wrapped) : wrapped;
 }
 
+/**
+ * Notes that an untyped integer needs more than 64 bits and was cut.
+ * @param {string} name
+ * @param {bigint} integer
+ */
 function wide(name, integer) {
   if (integer === BigInt.asIntN(64, integer) || integer === BigInt.asUintN(64, integer)) return;
   note(
@@ -215,6 +295,13 @@ function wide(name, integer) {
   );
 }
 
+/**
+ * The value a helper returns: converted to `type`, or with none a number as it is and a BigInt cut to a `u64`.
+ * @param {string} name
+ * @param {number | bigint} value
+ * @param {string} [type]
+ * @returns {number | bigint}
+ */
 function convert(name, value, type) {
   if (type) return to(name, type, value);
   inexact(name, value);
@@ -223,11 +310,25 @@ function convert(name, value, type) {
   return BigInt.asUintN(64, value);
 }
 
+/**
+ * An integer in a radix, upper case, with its prefix after the sign.
+ * @param {bigint} value
+ * @param {number} radix
+ * @param {string} prefix
+ * @returns {string}
+ */
 function whole(value, radix, prefix) {
   const sign = value < 0n ? "-" : "";
   return `${sign}${prefix}${(value < 0n ? -value : value).toString(radix).toUpperCase()}`;
 }
 
+/**
+ * A float in a radix, with its exact fraction digits (`0x1.8`).
+ * @param {number} value
+ * @param {number} radix
+ * @param {string} prefix
+ * @returns {string}
+ */
 function real(value, radix, prefix) {
   if (radix === 10 || !Number.isFinite(value)) return Object.is(value, -0) ? "-0" : String(value);
   const size = Math.abs(value);
@@ -242,6 +343,11 @@ function real(value, radix, prefix) {
   return `${sign}${whole(BigInt(Math.trunc(size)), radix, prefix)}${digits}`;
 }
 
+/**
+ * A float for a size: its exact decimal digits cut to 5 places, or to 20 when the first 5 are zeros.
+ * @param {number} value not whole
+ * @returns {string}
+ */
 function places(value) {
   const [digits, rest] = Math.abs(value).toFixed(100).split(".");
   const kept = (rest.startsWith("00000") ? rest.slice(0, 20) : rest.slice(0, 5)).replace(/0+$/, "");
@@ -249,6 +355,13 @@ function places(value) {
   return `${value < 0 ? "-" : ""}${digits}.${kept}`;
 }
 
+/**
+ * The text of a size helper's result: whole numbers with no fraction, others through `places`.
+ * @param {string} name
+ * @param {number | bigint} value
+ * @param {string} [type]
+ * @returns {string}
+ */
 function sized(name, value, type) {
   if (typeof value !== "number" || (type && !(type in FLOATS)))
     return render(name, value, "dec", type);
@@ -257,11 +370,22 @@ function sized(name, value, type) {
   return places(value);
 }
 
+/**
+ * The unit an option names: a size helper or a spelling such as `MiB` or `megabytes`.
+ * @param {unknown} option
+ * @returns {string | undefined} `byte`, `kb`, `mb`, `gb` or `tb`
+ */
 function unit(option) {
   if (units.has(option)) return units.get(option);
   return typeof option === "string" ? SPELLED.get(option.trim().toLowerCase()) : undefined;
 }
 
+/**
+ * Splits the options of a size helper into the unit the value is in and a type.
+ * @param {string} name
+ * @param {unknown[]} options
+ * @returns {[string, string | undefined]} the unit (`byte` by default) and the type
+ */
 function measures(name, options) {
   let from;
   let type;
@@ -280,6 +404,14 @@ function measures(name, options) {
   return [from || "byte", type];
 }
 
+/**
+ * Multiplies or divides by 1024 per step. With an integer type it computes as C would with an `int` or `long` constant: promotion, truncating division, a cut product. Without one, a division with a remainder gives a float.
+ * @param {string} name
+ * @param {number | bigint} value
+ * @param {number} shift bits to shift left; negative divides
+ * @param {string} [type]
+ * @returns {[number | bigint, string | undefined]} the result and the type the result line uses
+ */
 function scale(name, value, shift, type) {
   const size = Math.abs(shift);
   if (type in FLOATS || (!type && typeof value === "number")) {
@@ -304,6 +436,14 @@ function scale(name, value, shift, type) {
   ];
 }
 
+/**
+ * Runs a size helper: converts `input` from the unit among `options` to `target` and remembers how to show it.
+ * @param {string} name
+ * @param {string} target
+ * @param {unknown} input
+ * @param {unknown[]} options
+ * @returns {number | bigint}
+ */
 function measure(name, target, input, options) {
   const given = number(name, input);
   const [from, type] = measures(name, options);
@@ -318,6 +458,14 @@ function measure(name, target, input, options) {
   return value;
 }
 
+/**
+ * The text of a value in a base. An integer shows the two's complement pattern of its type, `u64` by default.
+ * @param {string} name
+ * @param {number | bigint} value
+ * @param {string} base `bin`, `oct`, `dec`, `hex` or `size`
+ * @param {string} [type]
+ * @returns {string}
+ */
 function render(name, value, base, type) {
   if (base === "size") return sized(name, value, type);
   const [radix, prefix] = BASES[base];
@@ -337,12 +485,22 @@ function render(name, value, base, type) {
   return digits + suffix;
 }
 
+/**
+ * The result line for a statement's value, or undefined when no helper ran or the value is not a number.
+ * @param {unknown} value
+ * @returns {string | undefined}
+ */
 function result(value) {
   if (!state.shown || !(typeof value === "bigint" || Number.isFinite(value))) return undefined;
   const [name, base, type] = state.shown;
   return render(name, value, base, type);
 }
 
+/**
+ * C's `sizeof` for a type name or a value; an integer counts as the constant it would be in C.
+ * @param {unknown} operand
+ * @returns {number} bytes
+ */
 function sizeof(operand) {
   if (typeof operand === "number" || typeof operand === "bigint") {
     if (typeof operand === "number" && !Number.isInteger(operand)) return 8;
@@ -353,6 +511,13 @@ function sizeof(operand) {
   return type in FLOATS ? FLOATS[type] : INTS[type][0] / 8;
 }
 
+/**
+ * Names a helper and records it, so that the function itself can be passed as an option (`hex(x, u16)`).
+ * @param {Map<Function, string>} table
+ * @param {string} name
+ * @param {Function} body
+ * @returns {Function}
+ */
 function define(table, name, body) {
   Object.defineProperty(body, "name", { value: name });
   table.set(body, name);
@@ -390,6 +555,10 @@ for (const name of UNITS) {
 define(extras, "cast", (type, input) => to("cast", kind("cast", type), number("cast", input)));
 define(extras, "sizeof", sizeof);
 
+/**
+ * Wraps a REPL server: each statement starts clean, and its value is written once, in the base called last.
+ * @param {import('node:repl').REPLServer} server
+ */
 function hook(server) {
   const { eval: evaluate, writer } = server;
 
@@ -415,6 +584,9 @@ function hook(server) {
   state.hooked = true;
 }
 
+/**
+ * Makes every REPL that `repl.start` creates go through `hook`.
+ */
 function install() {
   const repl = require("node:repl");
   const { start } = repl;
@@ -429,6 +601,10 @@ function install() {
 const nonRepl = /^(-e|-p|-pe|--eval|--print|-c|--check|--test|--run|--watch)(=|$)/;
 const interactive = process.execArgv.some((a) => a === "-i" || a === "--interactive");
 
+/**
+ * True only for the interactive prompt: not `-e`, a script, a test run or a worker.
+ * @returns {boolean}
+ */
 function isInteractiveRepl() {
   try {
     return (

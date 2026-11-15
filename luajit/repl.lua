@@ -5,6 +5,8 @@ end
 local ffi = require("ffi")
 local bit = require("bit")
 
+---True only for the interactive prompt: `-i`, or no script and a terminal on standard input.
+---@return boolean
 local function interactive()
   local first, index, forced, quiet = 0, nil, false, arg[0] ~= nil
   while arg[first - 1] ~= nil do
@@ -28,11 +30,14 @@ if not interactive() then
 end
 
 local U64, I64 = ffi.typeof("uint64_t"), ffi.typeof("int64_t")
+---An integer with a C type: 64 bits of value and an index into KINDS.
 local Int = ffi.typeof("struct { int64_t value; uint8_t kind; }")
 local DIGITS = "0123456789ABCDEF"
+---Each base helper's radix, prefix and bits per digit.
 local BASES = { bin = { 2, "0b", 1 }, oct = { 8, "0o", 3 }, dec = { 10, "" }, hex = { 16, "0x", 4 } }
 local FLOATS = { f32 = 4, f64 = 8 }
 local NAMES = { "bin", "oct", "dec", "hex" }
+---KINDS: each integer type's name, width and sign, by index and by name. KNOWN: every spelling of a base or a type.
 local KINDS, KNOWN = {}, {}
 for _, bits in ipairs({ 8, 16, 32, 64 }) do
   for _, sign in ipairs({ "u", "s" }) do
@@ -66,6 +71,7 @@ local WORDS = { signed = 1, unsigned = 1, char = 1, short = 1, int = 1, long = 2
 local APART = { { "signed", "unsigned" }, { "char", "short", "long" }, { "char", "int" } }
 local SIZES = { char = 8, short = 16, long = 64 }
 
+---The size units, each 1024 times the one before.
 local UNITS = { "byte", "kb", "mb", "gb", "tb" }
 local SPELLED = { b = "byte", byte = "byte", bytes = "byte" }
 for unit, words in pairs({
@@ -81,12 +87,21 @@ for unit, words in pairs({
 end
 
 local helpers, units, raw = {}, {}, print
+---shown: the last helper's name, base and type in this statement. hooked: whether the prompt and `print` are ours. noted: whether a note was already written.
 local shown, hooked, noted
 
+---Raises an error with a formatted message and no position.
+---@param message string
+---@param ... any
 local function fail(message, ...)
   error(message:format(...), 0)
 end
 
+---Decodes one UTF-8 sequence, rejecting overlong forms and surrogates.
+---@param text string
+---@param at integer byte position
+---@return integer? point
+---@return integer? after position after the sequence
 local function decode(text, at)
   local lead = text:byte(at)
   local size = lead < 0x80 and 1 or lead < 0xC2 and 0 or lead < 0xE0 and 2 or lead < 0xF0 and 3 or lead < 0xF5 and 4
@@ -108,6 +123,9 @@ local function decode(text, at)
   return point, at + size
 end
 
+---Quotes a string for an error message, escaping bytes that are not printable UTF-8.
+---@param text string
+---@return string
 local function quote(text)
   local parts, at, length = {}, 1, 0
   while at <= #text do
@@ -127,6 +145,9 @@ local function quote(text)
   return '"' .. table.concat(parts) .. '"'
 end
 
+---Shows a value for an error message, without the address that changes between runs.
+---@param value any
+---@return string
 local function describe(value)
   if type(value) == "string" then
     return quote(value)
@@ -139,22 +160,38 @@ local function describe(value)
   return #text > 80 and text:sub(1, 77) .. "..." or text
 end
 
+---Whether a value is one of ours: an integer that carries a C type.
+---@param value any
+---@return boolean
 local function typed(value)
   return type(value) == "cdata" and ffi.istype(Int, value)
 end
 
+---Whether a value is LuaJIT's own 64-bit integer (`1LL`, `1ULL`).
+---@param value any
+---@return boolean
 local function boxed(value)
   return type(value) == "cdata" and (ffi.istype(U64, value) or ffi.istype(I64, value))
 end
 
+---Whether a value is a number with a fraction.
+---@param value any
+---@return boolean
 local function real(value)
   return type(value) == "number" and value % 1 ~= 0
 end
 
+---Whether a value can take part in arithmetic here.
+---@param value any
+---@return boolean
 local function numeric(value)
   return typed(value) or boxed(value) or type(value) == "number"
 end
 
+---Cuts a 64-bit value to a type's width and extends its sign, as a C conversion does.
+---@param kind table an entry of KINDS
+---@param value ffi.cdata* int64_t
+---@return ffi.cdata* int64_t
 local function wrap(kind, value)
   if kind.bits == 64 then
     return value
@@ -166,14 +203,25 @@ local function wrap(kind, value)
   return low
 end
 
+---Builds a typed integer from a 64-bit value.
+---@param kind table
+---@param value ffi.cdata*
+---@return ffi.cdata* Int
 local function make(kind, value)
   return Int(wrap(kind, value), kind.index)
 end
 
+---C's integer promotion: a type narrower than `int` becomes `s32`.
+---@param kind table
+---@return table
 local function promote(kind)
   return kind.bits < 32 and KINDS.s32 or kind
 end
 
+---C's usual arithmetic conversion: the wider type, and of two equally wide ones the unsigned.
+---@param left table
+---@param right table
+---@return table
 local function common(left, right)
   left, right = promote(left), promote(right)
   if left.bits ~= right.bits then
@@ -182,11 +230,18 @@ local function common(left, right)
   return left.signed and right or left
 end
 
+---The low 64 bits of a whole number, however large.
+---@param value number
+---@return ffi.cdata* int64_t
 local function low64(value)
   local low = ffi.cast(U64, math.fmod(math.abs(value) - math.abs(value) % 1, 2 ^ 64))
   return ffi.cast(I64, value < 0 and -low or low)
 end
 
+---An integer operand as 64 bits and its type. A plain number is typed as a decimal C constant: `s32`, else `s64`, else `u64`.
+---@param value any
+---@return ffi.cdata* bits
+---@return table kind
 local function operand(value)
   if typed(value) then
     return value.value, KINDS[value.kind]
@@ -202,6 +257,9 @@ local function operand(value)
   return low64(value), size < 2 ^ 31 and KINDS.s32 or size < 2 ^ 63 and KINDS.s64 or KINDS.u64
 end
 
+---A value as a double, with a `u64` converted exactly as C converts it.
+---@param value any
+---@return number
 local function double(value)
   if type(value) == "number" then
     return value
@@ -214,6 +272,9 @@ local function double(value)
   return tonumber(bit.rshift(number, 32)) * 2 ^ 32 + tonumber(bit.band(number, U64(0xFFFFFFFF)))
 end
 
+---A typed integer rounded once to single precision, ties to even.
+---@param value any
+---@return number
 local function single(value)
   local number, kind = operand(value)
   local size = ffi.cast(U64, (kind.name ~= "u64" and number < 0) and -number or number)
@@ -233,6 +294,12 @@ local function single(value)
   return tonumber(quotient) * 2 ^ shift * ((kind.name ~= "u64" and number < 0) and -1 or 1)
 end
 
+---Both operands converted to their common type.
+---@param left any
+---@param right any
+---@return ffi.cdata* x
+---@return ffi.cdata* y
+---@return table kind
 local function pair(left, right)
   local x, a = operand(left)
   local y, b = operand(right)
@@ -240,6 +307,10 @@ local function pair(left, right)
   return wrap(kind, x), wrap(kind, y), kind
 end
 
+---Views two operands as unsigned when the type is `u64`, so that division and comparison follow it.
+---@param kind table
+---@param x ffi.cdata*
+---@param y ffi.cdata*
 local function unsigned(kind, x, y)
   if kind.name == "u64" then
     return ffi.cast(U64, x), ffi.cast(U64, y)
@@ -247,6 +318,10 @@ local function unsigned(kind, x, y)
   return x, y
 end
 
+---Makes a binary metamethod: floats when either side has a fraction, else C integer arithmetic in the common type.
+---@param float fun(x: number, y: number): number
+---@param whole fun(x: ffi.cdata*, y: ffi.cdata*, kind: table): ffi.cdata*
+---@return function
 local function arithmetic(float, whole)
   return function(left, right)
     if real(left) or real(right) then
@@ -257,6 +332,9 @@ local function arithmetic(float, whole)
   end
 end
 
+---Wraps a division so that a zero divisor is an error and `u64` divides unsigned.
+---@param operation function
+---@return function
 local function divide(operation)
   return function(x, y, kind)
     if y == 0 then
@@ -267,6 +345,10 @@ local function divide(operation)
   end
 end
 
+---Makes a comparison metamethod that compares in the common type, as C does.
+---@param test function
+---@param strict? boolean raise for a value that is not a number
+---@return function
 local function compare(test, strict)
   return function(left, right)
     if not strict and not (numeric(left) and numeric(right)) then
@@ -336,14 +418,25 @@ ffi.metatype(Int, {
   end,
 })
 
+---A 64-bit value as the 32-bit number `bit.*` expects, unless the type is 64 bits wide.
+---@param value ffi.cdata*
+---@param kind table
 local function narrow(value, kind)
   return kind.bits == 64 and value or tonumber(bit.band(value, U64(0xFFFFFFFF)))
 end
 
+---A shift count reduced as the x86-64 instruction reduces it: its low 5 or 6 bits.
+---@param value any
+---@param kind table
+---@return integer
 local function count(value, kind)
   return bit.band(tonumber((operand(value))), kind.bits - 1)
 end
 
+---Makes a typed shift: the result has the promoted type of the left operand.
+---@param native function
+---@param view function how the bits are read before shifting
+---@return function
 local function shift(native, view)
   return function(value, places)
     local number, kind = operand(value)
@@ -352,14 +445,23 @@ local function shift(native, view)
   end
 end
 
+---The bits of a value as unsigned, for a logical shift.
+---@param value ffi.cdata*
+---@param kind table
 local function pattern(value, kind)
   return kind.bits == 64 and value or bit.band(value, U64(0xFFFFFFFF))
 end
 
+---The bits of a value sign-extended, for an arithmetic shift.
+---@param value ffi.cdata*
+---@param kind table
 local function extended(value, kind)
   return kind.bits == 64 and value or wrap(KINDS.s32, value)
 end
 
+---Makes a typed `band`, `bor` or `bxor` over any number of operands.
+---@param native function
+---@return function
 local function logic(native)
   return function(first, ...)
     local result = first
@@ -371,6 +473,7 @@ local function logic(native)
   end
 end
 
+---The `bit.*` functions for typed operands, by C's rules.
 local TYPED = {
   band = logic(bit.band),
   bor = logic(bit.bor),
@@ -391,6 +494,8 @@ local TYPED = {
   end,
 }
 
+---A typed value as what LuaJIT itself would use: a number below 64 bits, a 64-bit integer otherwise.
+---@param value any
 local function plain(value)
   if not typed(value) then
     return value
@@ -402,6 +507,10 @@ local function plain(value)
   return kind.signed and value.value or ffi.cast(U64, value.value)
 end
 
+---Wraps a `bit.*` function: typed operands use the typed version, others the original.
+---@param native function
+---@param special? function
+---@return function
 local function overload(native, special)
   return function(...)
     local items, mixed = { ... }, false
@@ -416,6 +525,9 @@ local function overload(native, special)
   end
 end
 
+---Notes, once per statement, that a whole number past 2^53 is no longer exact.
+---@param name string
+---@param value number
 local function inexact(name, value)
   if math.abs(value) < 2 ^ 53 or value % 1 ~= 0 or (hooked and noted) then
     return
@@ -426,6 +538,10 @@ local function inexact(name, value)
   io.stderr:write("write it as a 64-bit literal (0x...ULL)\n")
 end
 
+---The code point of a one-character UTF-8 string; fails for any other length.
+---@param name string
+---@param text string
+---@return integer
 local function codepoint(name, text)
   local total, point, at = 0, nil, 1
   while at <= #text do
@@ -442,6 +558,9 @@ local function codepoint(name, text)
   return point
 end
 
+---Turns a helper's input into a number or an integer: booleans are 1 and 0, a one-character string is its code point.
+---@param name string
+---@param value any
 local function number(name, value)
   if type(value) == "boolean" then
     return value and 1 or 0
@@ -459,6 +578,9 @@ local function number(name, value)
   return given
 end
 
+---Reads C type specifiers in any order (`unsigned long int`) as GCC does on x86-64.
+---@param text string
+---@return string? name `u8` to `s64`
 local function specifiers(text)
   local counts, bits, any = {}, 32, false
   for word in text:gmatch("%S+") do
@@ -480,6 +602,9 @@ local function specifiers(text)
   return any and (counts.unsigned and "u" or "s") .. bits or nil
 end
 
+---The base or type an option names: a helper function, one of our names, or a C type name.
+---@param option any
+---@return string?
 local function resolve(option)
   if option ~= nil and helpers[option] then
     return helpers[option]
@@ -490,6 +615,12 @@ local function resolve(option)
   return KNOWN[text] or specifiers(text)
 end
 
+---Keeps an option of a sort, and fails when a different one of that sort was already given.
+---@param name string
+---@param sort string
+---@param old string?
+---@param key string
+---@return string
 local function one(name, sort, old, key)
   if old and old ~= key then
     fail("%s takes one %s, got %s and %s", name, sort, old, key)
@@ -497,6 +628,11 @@ local function one(name, sort, old, key)
   return key
 end
 
+---Splits the options of `bin`, `oct`, `dec` and `hex` into a base and a type.
+---@param name string
+---@param ... any
+---@return string base
+---@return string? kind
 local function pick(name, ...)
   local base, kind
   for index = 1, select("#", ...) do
@@ -513,6 +649,10 @@ local function pick(name, ...)
   return base or name, kind
 end
 
+---The type an option names, for `cast` and `sizeof`; fails for a base or anything else.
+---@param name string
+---@param option any
+---@return string
 local function kindof(name, option)
   local key = resolve(option)
   if not key or BASES[key] then
@@ -521,6 +661,10 @@ local function kindof(name, option)
   return key
 end
 
+---Converts as the C cast `(kind)value` does: a typed integer, or a number for `f32` and `f64`.
+---@param name string
+---@param kind string
+---@param value any
 local function cast(name, kind, value)
   if kind == "f32" then
     return type(value) == "number" and tonumber(ffi.cast("float", value)) or single(value)
@@ -533,6 +677,10 @@ local function cast(name, kind, value)
   return make(KINDS[kind], (operand(value)))
 end
 
+---The value a helper returns: converted to `kind`, or with none a whole number as a `u64` and anything typed or fractional as it is.
+---@param name string
+---@param value any
+---@param kind? string
 local function convert(name, value, kind)
   if kind then
     return cast(name, kind, value)
@@ -546,10 +694,18 @@ local function convert(name, value, kind)
   return output
 end
 
+---One digit, upper case.
+---@param value integer
+---@return string
 local function digit(value)
   return DIGITS:sub(value + 1, value + 1)
 end
 
+---A number in a radix, with its exact fraction digits (`0x1.8`).
+---@param value number
+---@param radix integer
+---@param prefix string
+---@return string
 local function fraction(value, radix, prefix)
   if radix == 10 or value ~= value or math.abs(value) == math.huge then
     return tostring(value)
@@ -570,6 +726,9 @@ local function fraction(value, radix, prefix)
   return text
 end
 
+---A number for a size: its decimal digits cut to 5 places, or to 20 when the first 5 are zeros.
+---@param value number not whole
+---@return string
 local function places(value)
   local digits, rest = ("%.60f"):format(math.abs(value)):match("^(%d+)%.(%d+)$")
   local kept = (rest:sub(1, 5) == "00000" and rest:sub(1, 20) or rest:sub(1, 5)):gsub("0+$", "")
@@ -579,6 +738,10 @@ local function places(value)
   return (value < 0 and "-" or "") .. digits .. "." .. kept
 end
 
+---The text of a value in a base. A typed integer shows the two's complement pattern of its type.
+---@param value any
+---@param base string `bin`, `oct`, `dec`, `hex` or `size`
+---@return string
 local function render(value, base)
   if base == "size" then
     if typed(value) or value == 0 or math.abs(value) < 1e-20 or math.abs(value) >= 1e21 then
@@ -604,6 +767,8 @@ local function render(value, base)
   return prefix .. text
 end
 
+---What `print` shows for a value after a helper ran: its text in the base called last, or the value itself.
+---@param value any
 local function result(value)
   if not (typed(value) or boxed(value)) then
     if type(value) ~= "number" or value ~= value or math.abs(value) == math.huge then
@@ -619,6 +784,9 @@ local function result(value)
   return ok and text or value
 end
 
+---Records a helper under its name, so that the function itself can be passed as an option, and makes it a global.
+---@param name string
+---@param body function
 local function define(name, body)
   helpers[body] = name
   if rawget(_G, name) == nil then
@@ -650,6 +818,9 @@ for _, name in ipairs(NAMES) do
   end
 end
 
+---The unit an option names: a size helper or a spelling such as `MiB` or `megabytes`.
+---@param option any
+---@return string?
 local function unit(option)
   if option ~= nil and units[option] then
     return units[option]
@@ -657,6 +828,11 @@ local function unit(option)
   return type(option) == "string" and SPELLED[option:lower():gsub("^%s+", ""):gsub("%s+$", "")] or nil
 end
 
+---Splits the options of a size helper into the unit the value is in and a type.
+---@param name string
+---@param ... any
+---@return string from
+---@return string? kind
 local function measures(name, ...)
   local from, kind
   for index = 1, select("#", ...) do
@@ -675,6 +851,11 @@ local function measures(name, ...)
   return from or "byte", kind
 end
 
+---Multiplies or divides by 1024 per step, in C's arithmetic for a typed value. Without a type among the options, a division with a remainder gives a number with a fraction.
+---@param name string
+---@param value any
+---@param shift integer bits to shift left; negative divides
+---@param kind? string
 local function scale(name, value, shift, kind)
   local factor = 2 ^ math.abs(shift)
   if kind then
@@ -693,6 +874,11 @@ local function scale(name, value, shift, kind)
   return double(value) / factor
 end
 
+---Runs a size helper: converts `value` from the unit among the options to `target` and remembers how to show it.
+---@param name string
+---@param target integer index into UNITS
+---@param value any
+---@param ... any
 local function measure(name, target, value, ...)
   local input = number(name, value)
   local from, kind = measures(name, ...)
@@ -725,6 +911,9 @@ for index, name in ipairs(UNITS) do
   end
 end
 
+---C's `sizeof` for a type name or a value, in bytes.
+---@param operand_ any
+---@return integer
 local function sizeof(operand_)
   if typed(operand_) then
     return KINDS[operand_.kind].bits / 8
