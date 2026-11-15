@@ -13,7 +13,11 @@ Each REPL has its own page, with every case it supports and every error it repor
 | node | `node/repl.js` | [node.md](node.md) |
 | LuaJIT | `luajit/repl.lua` | [luajit.md](luajit.md) |
 
-`tests/repl.sh` runs every row of those four pages and compares the output, so a page that falls behind the code
+[cnum.md](cnum.md) covers `cnum`, a calculator of its own written in Racket (`cnum/cnum.rkt`). It has the same
+helpers under C's own syntax: a cast is `(unsigned char)x`, a constant takes a suffix (`1u`, `1.5f`), every
+operator is C's (`-7 / 2` is -3), and `f(a, b) = a * b` defines a function.
+
+`tests/repl.sh` runs every row of those pages and compares the output, so a page that falls behind the code
 fails the checks.
 
 ## What all four do
@@ -68,16 +72,16 @@ A C name with several words takes them in any order, with or without `int`, as C
 
 ## Where the REPLs differ
 
-| | irb | IEx | node | LuaJIT |
-|---|---|---|---|---|
-| A type as an option | `u16`, `:u16`, `"u16"` | `u16`, `:u16`, `"u16"` | `u16`, `"u16"` | `u16`, `"u16"` |
-| A conversion returns | a typed value | an integer | a number, or a BigInt for 64 bits | a typed value |
-| Arithmetic on the result | C's rules | Elixir's | JavaScript's | C's rules |
-| A 64-bit value is written | as any Integer | as any integer | `0x...n` | `0x...ULL` |
-| A float to an integer type | as GCC's instruction converts | as GCC's instruction converts | fraction dropped, rest cut | fraction dropped, rest cut |
-| `big` | yes | yes | yes, a BigInt | no |
-| A value is shown for | every statement | every statement | every statement | a line that starts with `=` |
-| Bit operations | `& \| ^ ~ << >>` | `band`, `bor`, `bxor`, `bnot`, `<<<`, `>>>` | `& \| ^ ~ << >>`, on 32 bits for a number | `band`, `bor`, `bxor`, `bnot`, `lshift`, `rshift`, `arshift` |
+| | irb | IEx | node | LuaJIT | cnum |
+|---|---|---|---|---|---|
+| A type as an option | `u16`, `:u16`, `"u16"` | `u16`, `:u16`, `"u16"` | `u16`, `"u16"` | `u16`, `"u16"` | `u16`, `unsigned short` |
+| A conversion returns | a typed value | an integer | a number, or a BigInt for 64 bits | a typed value | a typed value |
+| Arithmetic on the result | C's rules | Elixir's | JavaScript's | C's rules | C's rules |
+| A 64-bit value is written | as any Integer | as any integer | `0x...n` | `0x...ULL` | as any constant, or with `ull` |
+| A float to an integer type | as GCC's instruction converts | as GCC's instruction converts | fraction dropped, rest cut | fraction dropped, rest cut | as GCC's instruction converts |
+| `big` | yes | yes | yes, a BigInt | no | yes |
+| A value is shown for | every statement | every statement | every statement | a line that starts with `=` | every line |
+| Bit operations | `& \| ^ ~ << >>` | `band`, `bor`, `bxor`, `bnot`, `<<<`, `>>>` | `& \| ^ ~ << >>`, on 32 bits for a number | `band`, `bor`, `bxor`, `bnot`, `lshift`, `rshift`, `arshift` | `& \| ^ ~ << >>` |
 
 In irb and LuaJIT a converted value keeps its type, and arithmetic on it follows C: an operand narrower than
 `int` is promoted to `int`, two operands meet in their common type, the result is cut to it, `/` truncates

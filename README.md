@@ -28,6 +28,7 @@ zsh/          zshrc, zshenv, zprofile, p10k.zsh (the prompt), config/caps-lock.z
 bash/         bashrc, for rescue shells and containers
 shell/        path.sh (PATH order), man.sh, ssh.sh (ssh in kitty), for both shells
 bin/          el: eza's long listing as a script sudo can run
+cnum/         cnum.rkt: a calculator in Racket with C's syntax and C's numbers
 kitty/        kitty.conf, ssh.conf, the spaceduck palette, the search kitten
 tmux/ npm/ fastfetch/ yazi/ git/ gdb/ node/ iex/ irb/ luajit/
 docs/         repl/: every case of the REPL helpers, replayed by tests/repl.sh
@@ -57,7 +58,7 @@ shell with `chsh`, or `usermod` where `chsh` is missing (Fedora and RHEL ship
 it in `util-linux-user`).
 
 Files are copied, never linked. **Mirrored** files are overwritten on every
-run: the shell files into `~`, `bin/el` into `~/.local/bin`, the rest under
+run: the shell files into `~`, `bin/el` and `cnum` into `~/.local/bin`, the rest under
 `$XDG_CONFIG_HOME` (default `~/.config`). A mirrored directory loses the files
 the repository dropped and keeps the ones it never had (kitty's
 `current-theme.conf`, say). `zsh/p10k.zsh` is **seeded**: copied once, since
@@ -181,9 +182,14 @@ division); IEx and node cannot change their operators, so there it is a plain
 number, cut where it was converted. `byte`, `kb`, `mb`, `gb` and `tb` convert
 sizes in steps of 1024: `gb(x)` from bytes, `gb(512, mb)`, `mb_to_gb(512)`.
 
-[docs/repl](docs/repl/README.md) has the whole toolbox, one page per REPL with
-each call and what it prints; look there for what you need. `tests/repl.sh`
-runs every row of those pages.
+`cnum` is a calculator of its own, written in Racket (it needs `racket`): the
+same helpers under C's own syntax, where `-7 / 2` is -3, `(unsigned char)300`
+is a cast, `1u` and `1.5f` are typed constants, and `f(a, b) = a * b` defines
+a function. `cnum` starts a prompt and `cnum 'hex(4, gb)'` answers at once.
+
+[docs/repl](docs/repl/README.md) has the whole toolbox, one page per REPL and
+one for cnum, with each call and what it prints; look there for what you
+need. `tests/repl.sh` runs every row of those pages.
 
 A node or LuaJIT number is exact up to 2^53 and its bit operations are
 32-bit; BigInt and `ULL` literals carry 64 bits. LuaJIT shows a value only

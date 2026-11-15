@@ -9,7 +9,7 @@ trap 'rm -rf -- "$WORK"' EXIT
 
 mkdir -p "$WORK/home" "$WORK/plain" "$WORK/run" "$WORK/cwd" "$WORK/bin" "$WORK/with/.config/luajit"
 cp -- "$REPO/irb/irbrc" "$WORK/home/.irbrc"
-cp -- "$REPO/irb/irbrc" "$REPO/iex/iex.exs" "$REPO/node/repl.js" "$REPO/luajit/repl.lua" "$WORK/"
+cp -- "$REPO/cnum/cnum.rkt" "$REPO/irb/irbrc" "$REPO/iex/iex.exs" "$REPO/node/repl.js" "$REPO/luajit/repl.lua" "$WORK/"
 cp -- "$REPO/luajit/repl.lua" "$WORK/with/.config/luajit/repl.lua"
 
 passed=0
@@ -102,6 +102,7 @@ EACH='0x5 | 0b110 | 6'
 irb_session() { session "$1" 's/^$//' 'puts "@@@";' timeout 120 irb --noverbose; }
 iex_session() { session "$1" 's/^((iex|\.\.\.)\([0-9]+\)> )+//' 'IO.puts("@@@"); IEx.dont_display_result()' timeout 120 iex --dot-iex "$2"; }
 node_session() { session "$1" 's/^(> |\.\.\. )+//' 'console.log("@@@")' NODE_REPL_HISTORY= NODE_OPTIONS="$2" timeout 120 node -i; }
+cnum_session() { session "$1" 's/^error: unexpected @$/@@@/' '@@@' timeout 120 racket "$WORK/cnum.rkt"; }
 luajit_session() { session "$1" 's/^(>> |> )+//' 'io.write("@@@\n")' LUA_INIT="$2" timeout 120 luajit -i; }
 
 if command -v irb >/dev/null 2>&1; then
@@ -341,6 +342,29 @@ if command -v luajit >/dev/null 2>&1; then
     fi
 else
     echo "SKIP  repl: luajit is not installed"
+fi
+
+if command -v racket >/dev/null 2>&1; then
+    t 'hex(255)' '0xFF'
+    t '-7 / 2' '-3'
+    t '(unsigned char)300' '44'
+    t 'hex(~0xFFF)' '0xFFFFFFFFFFFFF000'
+    t 'gb(512, mb)' '0.5'
+    t 'twice(a) = a * 2; twice(21)' '42'
+    cnum_session cnum
+    documented cnum
+    cnum_session 'cnum, as documented'
+    is 'cnum evaluates its arguments' "$(clean racket "$WORK/cnum.rkt" 'x = 6' 'hex(x * 7)' | tr '\n' ' ')" '6 0x2A '
+    is 'cnum fails on a bad argument' "$(
+        clean racket "$WORK/cnum.rkt" '1 +' >/dev/null
+        echo $?
+    )" 1
+    mkdir -p "$WORK/home/.config/cnum"
+    printf 'PAGE_SIZE = 0x1000\nup(v) = (v + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)\n' >"$WORK/home/.config/cnum/init"
+    is 'cnum runs its init file' "$(clean racket "$WORK/cnum.rkt" 'hex(up(0x1234))')" 0x2000
+    rm -r "$WORK/home/.config/cnum"
+else
+    echo "SKIP  repl: racket is not installed"
 fi
 
 printf '#!/bin/sh\n' >"$WORK/bin/luajit"

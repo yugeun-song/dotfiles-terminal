@@ -100,6 +100,17 @@ else
     echo "SKIP  luajit syntax: luajit is not installed"
 fi
 
+if have racket; then
+    if out=$(racket -e '(void (expand (parameterize ([read-accept-reader #t]) (call-with-input-file "cnum/cnum.rkt" (lambda (port) (read-line port) (read-syntax "cnum.rkt" port))))))' 2>&1); then
+        echo "PASS  racket syntax"
+    else
+        fail "racket syntax:"
+        echo "$out"
+    fi
+else
+    echo "SKIP  racket syntax: racket is not installed"
+fi
+
 # The formatters: each file is kept as its formatter writes it, under the
 # settings in .editorconfig, so formatting from the editor changes nothing.
 # One that only Neovim's Mason installed counts as installed.

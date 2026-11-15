@@ -163,6 +163,7 @@ plain "plain output without a terminal" "$out"
 same "zshrc content" "$T/home/.zshrc" "$T/repo/zsh/zshrc"
 same "caps-lock goes under XDG_CONFIG_HOME's default" "$T/home/.config/zsh/caps-lock.zsh" "$T/repo/zsh/config/caps-lock.zsh"
 if [[ -x $T/home/.local/bin/el ]]; then pass; else fail "el is executable"; fi
+if [[ -x $T/home/.local/bin/cnum ]]; then pass; else fail "cnum is executable"; fi
 if [[ -s $T/home/.local/state/dotfiles-terminal/installed ]]; then pass; else fail "the manifest is written"; fi
 has "the git include is in the temporary HOME" "$(cat "$T/home/.gitconfig")" "path = $T/repo/git/gitconfig"
 has "the gdb block" "$(cat "$T/home/.gdbinit")" "source $T/home/.config/gdb/presets.py"
