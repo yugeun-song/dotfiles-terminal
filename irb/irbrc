@@ -1,0 +1,62 @@
+# frozen_string_literal: true
+
+# Read by irb only; a project's own .irbrc in the working directory is read after this one.
+module IrbHelpers
+  BASES = { hex: [16, '0x'], bin: [2, '0b'], oct: [8, '0o'] }.freeze
+
+  BASES.each do |name, (radix, prefix)|
+    define_method(name) do |value|
+      number = IrbHelpers.to_number(name, value)
+      puts IrbHelpers.format(number, radix, prefix)
+      number
+    end
+  end
+
+  def self.to_number(name, value)
+    case value
+    when Integer then value
+    when Float then finite(name, value)
+    when true, false then value ? 1 : 0
+    when String then code_point(name, value)
+    else
+      raise ArgumentError, "#{name} expects an integer, float, boolean, or single character, got #{value.inspect}"
+    end
+  end
+
+  def self.finite(name, value)
+    raise RangeError, "#{name} expects a finite number, got #{value}" unless value.finite?
+
+    value
+  end
+
+  def self.code_point(name, value)
+    return value.ord if value.valid_encoding? && value.length == 1
+
+    raise ArgumentError, "#{name} expects a single character, got #{value.inspect} (#{value.length} code points)"
+  end
+
+  def self.format(number, radix, prefix)
+    return "-#{format(-number, radix, prefix)}" if number.negative? || (number.is_a?(Float) && (1.0 / number).negative?)
+
+    whole = number.to_i
+    digits = prefix + whole.to_s(radix).upcase
+    fraction = number - whole
+    fraction.zero? ? digits : "#{digits}.#{fraction_digits(fraction, radix)}"
+  end
+
+  def self.fraction_digits(fraction, radix)
+    out = +''
+    until fraction.zero?
+      fraction *= radix
+      digit = fraction.to_i
+      out << digit.to_s(radix).upcase
+      fraction -= digit
+    end
+    out
+  end
+end
+
+TOPLEVEL_BINDING.receiver.extend(IrbHelpers)
+
+run_dir = ENV.fetch('XDG_RUNTIME_DIR', '')
+IRB.conf[:HISTORY_FILE] = File.join(run_dir, 'irb_history') if !run_dir.empty? && File.directory?(run_dir)

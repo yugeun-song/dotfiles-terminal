@@ -66,8 +66,8 @@ done
 run_dir=$WORK/run
 mkdir -p "$run_dir"
 is "REPL histories in the runtime directory" \
-    "$(env -i XDG_RUNTIME_DIR="$run_dir" sh -c '. "$1"; echo "$NODE_REPL_HISTORY $PYTHON_HISTORY $LESSHISTFILE"' sh "$REPO/shell/history.sh")" \
-    "$run_dir/node_repl_history $run_dir/python_history $run_dir/lesshst"
+    "$(env -i XDG_RUNTIME_DIR="$run_dir" sh -c '. "$1"; echo "$NODE_REPL_HISTORY $PYTHON_HISTORY $LESSHISTFILE $RUBY_DEBUG_HISTORY_FILE"' sh "$REPO/shell/history.sh")" \
+    "$run_dir/node_repl_history $run_dir/python_history $run_dir/lesshst $run_dir/rdbg_history"
 is "without one, the tools' defaults" \
     "$(env -i sh -c '. "$1"; echo "${NODE_REPL_HISTORY-unset}"' sh "$REPO/shell/history.sh")" unset
 

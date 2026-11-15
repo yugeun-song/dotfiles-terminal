@@ -1,7 +1,7 @@
 # dotfiles-terminal
 
 Shell, prompt, terminal and debugger configuration: zsh, bash, kitty, tmux,
-gdb, git, and number-base helpers for the node and IEx REPLs. The desktop
+gdb, git, and number-base helpers for the node, IEx and irb REPLs. The desktop
 (Hyprland, the bar, the session) lives in
 [dotfiles-desktop](https://github.com/yugeun-song/dotfiles-desktop); no file
 is installed by both.
@@ -17,7 +17,7 @@ checks the premise first and writes nothing when it is not met, an
 unrecognised distribution included. Within it, the files adapt: fzf's two
 scripts come from the distribution's files, or from `fzf --zsh` where those
 are incomplete; pwndbg from `~/pwndbg` or `/usr/share/pwndbg`. Optional
-tools (eza, fzf, tmux, wl-copy, gdb, pwndbg, node, IEx, fastfetch, yazi, gh,
+tools (eza, fzf, tmux, wl-copy, gdb, pwndbg, node, IEx, irb, fastfetch, yazi, gh,
 the two fonts) are listed by the closing doctor line when missing; each
 feature does without its tool.
 
@@ -29,7 +29,7 @@ bash/         bashrc, for rescue shells and containers
 shell/        path.sh (PATH order), man.sh, ssh.sh (ssh in kitty), for both shells
 bin/          el: eza's long listing as a script sudo can run
 kitty/        kitty.conf, ssh.conf, the spaceduck palette, the search kitten
-tmux/ npm/ fastfetch/ yazi/ git/ gdb/ node/ iex/
+tmux/ npm/ fastfetch/ yazi/ git/ gdb/ node/ iex/ irb/
 install.sh    places the files (below)
 bootstrap.sh  clones what is not a file here, sets the login shell
 packages.txt  what install.sh installs first (packages.sh)
@@ -110,9 +110,9 @@ RHEL's default `secure_path` lacks `/usr/local/bin`; there, add it or call
   `Authorization:` header, and in zsh a URL with a password in it; a leading
   space keeps any line out.
 - REPL, database-shell and pager histories (node, python, psql, sqlite,
-  mysql, redis-cli, less) live in `$XDG_RUNTIME_DIR` (`shell/history.sh`, read
-  by `zshenv` and `bashrc`), so they last the session; what is already in `~/.node_repl_history`,
-  `~/.python_history` or `~/.local/state/lesshst` stays until removed.
+  mysql, redis-cli, less, rdbg) live in `$XDG_RUNTIME_DIR` (`shell/history.sh`, read
+  by `zshenv` and `bashrc`; irb's through `~/.irbrc`), so they last the session; what is already in `~/.node_repl_history`,
+  `~/.python_history`, `~/.irb_history` or `~/.local/state/lesshst` stays until removed.
 - `el` is `eza --icons -al`. Root runs only root-owned files: it reads nothing
   from the invoking user's home, except `~/.dircolors` when that is a regular
   file owned by the user running it. An eza that fails to start is passed
@@ -165,13 +165,15 @@ tree with `-iex`, which gdb runs after the init file, so `lx-*` still loads
 there. pwndbg is sourced before anything imports gdb's Python package, so an
 Arch cross gdb whose package lags gdb-common still starts it.
 
-## node and IEx
+## node, IEx and irb
 
 `hex`, `oct` and `bin` print a number in that base and return it, so they nest
 in arithmetic; a single character stands for its code point (`hex("A")` is
 `0x41`). In node they exist only in an interactive REPL, never under `-e`,
 `-p`, a script or a worker. A project's own `.iex.exs` replaces this one
-unless it calls `import_file("~/.iex.exs")`.
+unless it calls `import_file("~/.iex.exs")`. In irb they belong to the
+top-level object only; irb also runs a `.irbrc` in the directory it starts
+in, after this one.
 
 ## Checks
 

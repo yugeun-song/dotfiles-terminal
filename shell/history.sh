@@ -13,4 +13,5 @@ if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "$XDG_RUNTIME_DIR" ]; then
     export SQLITE_HISTORY="$XDG_RUNTIME_DIR/sqlite_history"
     export MYSQL_HISTFILE="$XDG_RUNTIME_DIR/mysql_history"
     export REDISCLI_HISTFILE="$XDG_RUNTIME_DIR/rediscli_history"
+    export RUBY_DEBUG_HISTORY_FILE="$XDG_RUNTIME_DIR/rdbg_history"
 fi

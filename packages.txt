@@ -18,6 +18,7 @@ gdb
 nodejs
 npm
 elixir
+ruby-irb
 fastfetch
 yazi
 github-cli

@@ -53,6 +53,12 @@ else
     echo "SKIP  node syntax: node is not installed"
 fi
 
+if have ruby; then
+    if out=$(ruby -c irb/irbrc 2>&1); then echo "PASS  ruby syntax"; else fail "ruby syntax:"; echo "$out"; fi
+else
+    echo "SKIP  ruby syntax: ruby is not installed"
+fi
+
 tests/path.sh || failed=1
 tests/history.sh || failed=1
 tests/ssh.sh || failed=1

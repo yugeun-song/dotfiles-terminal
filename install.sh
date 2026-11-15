@@ -764,7 +764,7 @@ doctor() {
     local tool families
     local -a missing=()
     for tool in "eza:el" "fzf:Ctrl-R and Ctrl-T in zsh" "tmux:tmux.conf" "wl-copy:tmux and zsh vi-mode yanks" \
-                "gdb:the gdb presets" "node:the node REPL helpers" "iex:the IEx helpers" \
+                "gdb:the gdb presets" "node:the node REPL helpers" "iex:the IEx helpers" "irb:the irb helpers" \
                 "fastfetch:fastfetch/config.jsonc" "yazi:yazi/theme.toml" "gh:git credentials for GitHub"; do
         command -v "${tool%%:*}" >/dev/null 2>&1 || missing+=("${tool%%:*} (${tool#*:})")
     done
@@ -808,6 +808,7 @@ step file tmux/tmux.conf    "$CONFIG/tmux/tmux.conf"
 step exe  bin/el            "$HOME/.local/bin/el"
 step file npm/npmrc         "$HOME/.npmrc"
 step file iex/iex.exs       "$HOME/.iex.exs"
+step file irb/irbrc         "$HOME/.irbrc"
 step file zsh/zshenv        "$HOME/.zshenv"
 step file zsh/zprofile      "$HOME/.zprofile"
 step file zsh/zshrc         "$HOME/.zshrc"
