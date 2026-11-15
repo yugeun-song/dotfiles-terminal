@@ -16,7 +16,12 @@ USER_DIRS="$H/.local/bin:$H/.cargo/bin"
 passed=0
 failed=0
 is() {
-    if [[ $2 == "$3" ]]; then passed=$((passed + 1)); else failed=$((failed + 1)); printf 'FAIL  path: %s: got [%s], want [%s]\n' "$1" "$2" "$3"; fi
+    if [[ $2 == "$3" ]]; then
+        passed=$((passed + 1))
+    else
+        failed=$((failed + 1))
+        printf 'FAIL  path: %s: got [%s], want [%s]\n' "$1" "$2" "$3"
+    fi
 }
 
 # $1 shell, $2 PATH to start from, $3 a command run before path.sh.
@@ -25,11 +30,14 @@ order() {
     env -i HOME="$H" START="$start" FILE="$REPO/shell/path.sh" \
         timeout 5 "$shell" -c "$before; PATH=\$START; . \"\$FILE\"; printf %s \"\$PATH\"" 2>&1
     local code=$?
-    (( code == 124 )) && printf 'TIMEOUT'
+    ((code == 124)) && printf 'TIMEOUT'
 }
 
 for shell in bash zsh; do
-    command -v "$shell" >/dev/null 2>&1 || { echo "SKIP  path: $shell is not installed"; continue; }
+    command -v "$shell" >/dev/null 2>&1 || {
+        echo "SKIP  path: $shell is not installed"
+        continue
+    }
     is "$shell: a user directory in front moves last" "$(order "$shell" "$H/.local/bin:/usr/bin:/bin")" "/usr/bin:/bin:$USER_DIRS"
     is "$shell: one in the middle" "$(order "$shell" "/usr/bin:$H/.local/bin:/bin")" "/usr/bin:/bin:$USER_DIRS"
     is "$shell: with a trailing slash" "$(order "$shell" "/usr/bin:$H/.local/bin/:/bin")" "/usr/bin:/bin:$USER_DIRS"
@@ -43,7 +51,7 @@ if command -v zsh >/dev/null 2>&1; then
         "$(order zsh "/usr/bin:$H/.local/bin" "typeset -U PATH path")" "/usr/bin:$USER_DIRS"
 fi
 
-if (( failed )); then
+if ((failed)); then
     echo "FAIL  path: $failed of $((passed + failed)) checks"
     exit 1
 fi

@@ -40,7 +40,7 @@ done
 unset _f
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/man.sh"
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/ssh.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/ssh.sh"
-[ -r "$HOME/.config/byobu/prompt" ] && . "$HOME/.config/byobu/prompt"   #byobu-prompt#
+[ -r "$HOME/.config/byobu/prompt" ] && . "$HOME/.config/byobu/prompt" #byobu-prompt#
 
 # Debugging helpers (shell/debug.sh): debugmax, straceall, lastcore and more.
 [ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/debug.sh" ] && . "${XDG_CONFIG_HOME:-$HOME/.config}/shell/debug.sh"
@@ -52,7 +52,7 @@ unset _f
 # the public checkouts; they are not for secrets, since every shell exports
 # them to everything it starts. Absent files are a no-op.
 for _f in "${XDG_CONFIG_HOME:-$HOME/.config}/gdbtools/env" \
-          "${XDG_CONFIG_HOME:-$HOME/.config}/kbuildlab/env"; do
+    "${XDG_CONFIG_HOME:-$HOME/.config}/kbuildlab/env"; do
     [ -r "$_f" ] && . "$_f"
 done
 unset _f

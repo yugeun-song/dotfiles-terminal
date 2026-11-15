@@ -17,10 +17,18 @@ failed=0
 HOME_DIR=$WORK/home
 ASK=() WANT=()
 
-t() { ASK+=("$1"); WANT+=("$2"); }
+t() {
+    ASK+=("$1")
+    WANT+=("$2")
+}
 
 is() {
-    if [[ $2 == "$3" ]]; then passed=$((passed + 1)); else failed=$((failed + 1)); printf 'FAIL  repl: %s: got [%s], want [%s]\n' "$1" "$2" "$3"; fi
+    if [[ $2 == "$3" ]]; then
+        passed=$((passed + 1))
+    else
+        failed=$((failed + 1))
+        printf 'FAIL  repl: %s: got [%s], want [%s]\n' "$1" "$2" "$3"
+    fi
 }
 
 clean() { (cd "$WORK/cwd" && env -i PATH="$PATH" HOME="$HOME_DIR" XDG_RUNTIME_DIR="$WORK/run" TERM=dumb LANG=C.UTF-8 "$@" 2>&1); }
@@ -42,7 +50,10 @@ session() {
         elif [[ ${got[i]-} == "${WANT[i]}" ]]; then
             ok=1
         fi
-        if (( ok )); then passed=$((passed + 1)); continue; fi
+        if ((ok)); then
+            passed=$((passed + 1))
+            continue
+        fi
         failed=$((failed + 1))
         printf 'FAIL  repl: %s: %s: got [%s], want [%s]\n' "$name" "${ASK[i]}" "${got[i]-}" "${WANT[i]}"
     done
@@ -232,7 +243,7 @@ is 'luajit.sh without luajit' "$(lua_init /nonexistent "$WORK/with" '')" unset
 is 'luajit.sh keeps another LUA_INIT' "$(lua_init "$WORK/bin" "$WORK/with" '@/other')" '@/other'
 is 'luajit.sh drops its own stale LUA_INIT' "$(lua_init /nonexistent "$WORK/with" "$ours")" unset
 
-if (( failed )); then
+if ((failed)); then
     echo "FAIL  repl: $failed of $((passed + failed)) checks"
     exit 1
 fi

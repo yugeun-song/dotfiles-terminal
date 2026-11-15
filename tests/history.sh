@@ -15,7 +15,12 @@ trap 'rm -rf -- "$WORK"' EXIT
 passed=0
 failed=0
 is() {
-    if [[ $2 == "$3" ]]; then passed=$((passed + 1)); else failed=$((failed + 1)); printf 'FAIL  history: %s: got [%s], want [%s]\n' "$1" "$2" "$3"; fi
+    if [[ $2 == "$3" ]]; then
+        passed=$((passed + 1))
+    else
+        failed=$((failed + 1))
+        printf 'FAIL  history: %s: got [%s], want [%s]\n' "$1" "$2" "$3"
+    fi
 }
 
 secret=(
@@ -71,7 +76,7 @@ is "REPL histories in the runtime directory" \
 is "without one, the tools' defaults" \
     "$(env -i sh -c '. "$1"; echo "${NODE_REPL_HISTORY-unset}"' sh "$REPO/shell/history.sh")" unset
 
-if (( failed )); then
+if ((failed)); then
     echo "FAIL  history: $failed of $((passed + failed)) checks"
     exit 1
 fi

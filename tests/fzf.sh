@@ -19,7 +19,10 @@ trap 'rm -rf -- "$WORK"' EXIT
 passed=0
 failed=0
 pass() { passed=$((passed + 1)); }
-fail() { failed=$((failed + 1)); printf 'FAIL  fzf block: %s\n' "$*"; }
+fail() {
+    failed=$((failed + 1))
+    printf 'FAIL  fzf block: %s\n' "$*"
+}
 is() { if [[ $2 == "$3" ]]; then pass; else fail "$1: got [$2], want [$3]"; fi; }
 
 block=$(awk '/^_fzf_dir=$/ { on = 1 } on { print } on && /^unset _fzf_dir _fzf_init _d$/ { exit }' "$REPO/zsh/zshrc")
@@ -114,7 +117,7 @@ gutter "an fzf before 0.66: no --gutter" new ""
 gutter "an fzf before 0.48: no --gutter" old ""
 gutter "no fzf: no --gutter" none ""
 
-if (( failed )); then
+if ((failed)); then
     echo "FAIL  fzf block: $failed of $((passed + failed)) checks"
     exit 1
 fi

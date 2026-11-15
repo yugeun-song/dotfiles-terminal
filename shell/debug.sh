@@ -12,7 +12,7 @@
 # Auto-download debug symbols AND source for glibc/libraries/kernel on demand
 # (used by gdb, valgrind, eu-*, perf). Keep any value already set by the system.
 export DEBUGINFOD_URLS="${DEBUGINFOD_URLS:-https://debuginfod.archlinux.org}"
-export DEBUGINFOD_PROGRESS=1          # show a progress bar while fetching
+export DEBUGINFOD_PROGRESS=1 # show a progress bar while fetching
 
 # Always keep a core dump when something crashes (systemd-coredump collects it;
 # retrieve with `coredumpctl gdb <name>`).
@@ -32,20 +32,23 @@ export DEBUGMAX_LOGDIR="${DEBUGMAX_LOGDIR:-$HOME/debug-logs}"
 #   use-after-free / uninitialized reads tend to fault instead of passing.
 # ---------------------------------------------------------------------------
 debugmax() {
-  [ $# -eq 0 ] && { echo "usage: debugmax <program> [args...]" >&2; return 2; }
-  local ts base dir
-  ts=$(date +%Y%m%d-%H%M%S)
-  base=${1##*/}
-  dir="$DEBUGMAX_LOGDIR/${base}-${ts}"
-  mkdir -p "$dir"
-  echo "[debugmax] capturing to $dir" >&2
-  LD_DEBUG=all LD_DEBUG_OUTPUT="$dir/ld" LD_SHOW_AUXV=1 \
-  MALLOC_CHECK_=3 MALLOC_PERTURB_=165 GLIBC_TUNABLES=glibc.malloc.check=3 \
-  strace -f -yy -T -tt -s 4096 -e trace=all -o "$dir/strace.log" "$@"
-  local rc=$?
-  echo "[debugmax] exit=$rc  (strace: $dir/strace.log ; ld.so: $dir/ld.<pid>)" >&2
-  echo "[debugmax] crashed? -> coredumpctl gdb $base" >&2
-  return $rc
+    [ $# -eq 0 ] && {
+        echo "usage: debugmax <program> [args...]" >&2
+        return 2
+    }
+    local ts base dir
+    ts=$(date +%Y%m%d-%H%M%S)
+    base=${1##*/}
+    dir="$DEBUGMAX_LOGDIR/${base}-${ts}"
+    mkdir -p "$dir"
+    echo "[debugmax] capturing to $dir" >&2
+    LD_DEBUG=all LD_DEBUG_OUTPUT="$dir/ld" LD_SHOW_AUXV=1 \
+        MALLOC_CHECK_=3 MALLOC_PERTURB_=165 GLIBC_TUNABLES=glibc.malloc.check=3 \
+        strace -f -yy -T -tt -s 4096 -e trace=all -o "$dir/strace.log" "$@"
+    local rc=$?
+    echo "[debugmax] exit=$rc  (strace: $dir/strace.log ; ld.so: $dir/ld.<pid>)" >&2
+    echo "[debugmax] crashed? -> coredumpctl gdb $base" >&2
+    return $rc
 }
 
 # ---------------------------------------------------------------------------
@@ -77,13 +80,16 @@ lastcore() { coredumpctl gdb "${1:-}"; }
 # Full static picture of an ELF: headers, segments, sections, dynamic, relocs,
 # symbols, notes/build-id, and DWARF presence.
 elfinfo() {
-  [ -z "$1" ] && { echo "usage: elfinfo <file>" >&2; return 2; }
-  eu-readelf -a "$1" 2>/dev/null || readelf -aW "$1"
+    [ -z "$1" ] && {
+        echo "usage: elfinfo <file>" >&2
+        return 2
+    }
+    eu-readelf -a "$1" 2>/dev/null || readelf -aW "$1"
 }
 
 # List every debug-max helper.
 debughelp() {
-  cat <<'EOF'
+    cat <<'EOF'
 debug-max helpers:
   debugmax <prog> ...   run under strace + LD_DEBUG=all + heap poisoning, logs saved
   straceall <prog> ...  every syscall, decoded, timed

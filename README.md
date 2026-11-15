@@ -23,7 +23,7 @@ feature does without its tool.
 
 ## Layout
 
-```
+```text
 zsh/          zshrc, zshenv, zprofile, p10k.zsh (the prompt), config/caps-lock.zsh
 bash/         bashrc, for rescue shells and containers
 shell/        path.sh (PATH order), man.sh, ssh.sh (ssh in kitty), for both shells

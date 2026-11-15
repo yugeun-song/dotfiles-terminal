@@ -9,8 +9,14 @@ set -uo pipefail
 
 case ${1:-} in
     "") ;;
-    -h|--help) echo "usage: ./bootstrap.sh   (no options; reaches the network and runs sudo chsh or usermod)"; exit 0 ;;
-    *) echo "usage: ./bootstrap.sh   (no options)" >&2; exit 2 ;;
+    -h | --help)
+        echo "usage: ./bootstrap.sh   (no options; reaches the network and runs sudo chsh or usermod)"
+        exit 0
+        ;;
+    *)
+        echo "usage: ./bootstrap.sh   (no options)" >&2
+        exit 2
+        ;;
 esac
 
 # Where zshrc looks: it pins ZSH, and Oh My Zsh itself honours ZSH_CUSTOM.
@@ -29,12 +35,15 @@ acquire_sudo() {
     sudo -n true 2>/dev/null && return 0
     sudo -v 2>/dev/null || return 1
     sudo_asked=1
-    ( trap 'kill "${nap:-}" 2>/dev/null; exit 0' TERM
-      while kill -0 "$$" 2>/dev/null; do
-          sudo -n true 2>/dev/null || exit 0
-          sleep 50 & nap=$!
-          wait "$nap" || :
-      done ) &
+    (
+        trap 'kill "${nap:-}" 2>/dev/null; exit 0' TERM
+        while kill -0 "$$" 2>/dev/null; do
+            sudo -n true 2>/dev/null || exit 0
+            sleep 50 &
+            nap=$!
+            wait "$nap" || :
+        done
+    ) &
     sudo_keepalive=$!
     return 0
 }
@@ -42,7 +51,7 @@ acquire_sudo() {
 # sudo without a password for minutes more; one that was there before stays.
 cleanup() {
     [[ -n "$sudo_keepalive" ]] && kill "$sudo_keepalive" 2>/dev/null
-    (( sudo_asked )) && sudo -k 2>/dev/null
+    ((sudo_asked)) && sudo -k 2>/dev/null
     return 0
 }
 trap cleanup EXIT
@@ -53,8 +62,8 @@ clone() {
     local url="$1" dest="$2" name="$3"
     if [[ -d "$dest/.git" ]]; then
         echo "updating $name"
-        git -C "$dest" pull --ff-only --quiet \
-            || echo "  could not fast-forward $name; leaving it as it is" >&2
+        git -C "$dest" pull --ff-only --quiet ||
+            echo "  could not fast-forward $name; leaving it as it is" >&2
         return 0
     fi
     if [[ -e "$dest" ]]; then
@@ -69,16 +78,19 @@ clone() {
     fi
 }
 
-command -v git >/dev/null 2>&1 || { echo "git is not installed" >&2; exit 1; }
+command -v git >/dev/null 2>&1 || {
+    echo "git is not installed" >&2
+    exit 1
+}
 
 clone https://github.com/ohmyzsh/ohmyzsh.git \
-      "$ZSH_DIR" "oh-my-zsh"
+    "$ZSH_DIR" "oh-my-zsh"
 clone https://github.com/romkatv/powerlevel10k.git \
-      "$CUSTOM/themes/powerlevel10k" "powerlevel10k (the prompt)"
+    "$CUSTOM/themes/powerlevel10k" "powerlevel10k (the prompt)"
 clone https://github.com/zsh-users/zsh-autosuggestions \
-      "$CUSTOM/plugins/zsh-autosuggestions" "zsh-autosuggestions"
+    "$CUSTOM/plugins/zsh-autosuggestions" "zsh-autosuggestions"
 clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
-      "$CUSTOM/plugins/zsh-syntax-highlighting" "zsh-syntax-highlighting"
+    "$CUSTOM/plugins/zsh-syntax-highlighting" "zsh-syntax-highlighting"
 
 echo
 
@@ -99,8 +111,8 @@ NVIM_SRC="${NVIM_CONFIG_DIR:-$HOME/nvim-config}"
 NVIM_LINK="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
 if [[ -d "$NVIM_SRC/.git" ]]; then
     echo "updating nvim configuration"
-    git -C "$NVIM_SRC" pull --ff-only --quiet \
-        || echo "  could not fast-forward the nvim configuration; leaving it" >&2
+    git -C "$NVIM_SRC" pull --ff-only --quiet ||
+        echo "  could not fast-forward the nvim configuration; leaving it" >&2
 elif [[ -e "$NVIM_SRC" || -e "$NVIM_LINK" ]]; then
     echo "an nvim configuration is already in place; leaving it alone"
 elif [[ -n "${NVIM_CONFIG_URL:-}" ]] || { command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; }; then
@@ -115,7 +127,10 @@ elif [[ -n "${NVIM_CONFIG_URL:-}" ]] || { command -v gh >/dev/null 2>&1 && gh au
     else
         echo "cloning nvim configuration from $url"
         mkdir -p "$(dirname "$NVIM_SRC")"
-        git clone --quiet "$url" "$NVIM_SRC" || { echo "  clone failed" >&2; fail=1; }
+        git clone --quiet "$url" "$NVIM_SRC" || {
+            echo "  clone failed" >&2
+            fail=1
+        }
     fi
 else
     echo "no nvim configuration and no way to find one; set NVIM_CONFIG_URL" >&2
@@ -156,7 +171,7 @@ else
 fi
 
 echo
-if (( fail )); then
+if ((fail)); then
     echo "finished with problems; see the messages above" >&2
     exit 1
 fi

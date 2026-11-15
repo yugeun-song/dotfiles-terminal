@@ -1,0 +1,34 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{js,lua,exs,toml,md}]
+indent_size = 2
+
+[irb/irbrc]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+# shfmt reads these two sections as well.
+[*.sh]
+switch_case_indent = true
+
+[{bin/el,bash/bashrc}]
+switch_case_indent = true
+
+[zsh/**]
+ignore = true
+
+# Other projects' files stay byte for byte (THIRD-PARTY-NOTICES).
+[{zsh/p10k.zsh,kitty/spaceduck.conf,kitty/search.py,kitty/scroll_mark.py,LICENSES/**}]
+indent_size = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset

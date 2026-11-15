@@ -13,7 +13,10 @@ trap 'rm -rf -- "$WORK"' EXIT
 passed=0
 failed=0
 pass() { passed=$((passed + 1)); }
-fail() { failed=$((failed + 1)); printf 'FAIL  ssh: %s\n' "$*"; }
+fail() {
+    failed=$((failed + 1))
+    printf 'FAIL  ssh: %s\n' "$*"
+}
 
 if ! SCRIPT=$(command -v script); then
     echo "SKIP  ssh on a terminal: script is not installed"
@@ -81,7 +84,10 @@ check() {
 }
 
 for sh in bash zsh; do
-    shell=$(command -v "$sh") || { echo "SKIP  ssh: $sh is not installed"; continue; }
+    shell=$(command -v "$sh") || {
+        echo "SKIP  ssh: $sh is not installed"
+        continue
+    }
     check "no terminal at all" none "$stubs" "$PLAIN" TERM=xterm-kitty KITTY_WINDOW_ID=1 KITTY_PID=4242
     [[ -n $SCRIPT ]] || continue
     check "every condition holds" tty "$stubs" "$KITTEN" TERM=xterm-kitty KITTY_WINDOW_ID=1 KITTY_PID=4242
@@ -101,7 +107,7 @@ for sh in bash zsh; do
     check "kitten is not on PATH" tty "$nokitten" "$PLAIN" TERM=xterm-kitty KITTY_WINDOW_ID=1 KITTY_PID=4242
 done
 
-if (( failed )); then
+if ((failed)); then
     echo "FAIL  ssh: $failed of $((passed + failed)) checks"
     exit 1
 fi

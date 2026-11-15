@@ -1,0 +1,6 @@
+[global]
+disable = ["MD013"]
+cache = false
+
+[MD033]
+allowed-elements = ["br"]

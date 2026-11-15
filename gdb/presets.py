@@ -80,7 +80,12 @@ def _gdb_presets(here):
             section = struct.Struct(order + section_format)
             handle.seek(0)
             fields = header.unpack(handle.read(header.size))
-            table_offset, entry_size, count, names_index = fields[5], fields[10], fields[11], fields[12]
+            table_offset, entry_size, count, names_index = (
+                fields[5],
+                fields[10],
+                fields[11],
+                fields[12],
+            )
             if not table_offset or entry_size < section.size:
                 return set()
             file_size = os.fstat(handle.fileno()).st_size
@@ -166,7 +171,10 @@ def _gdb_presets(here):
 
     choice = os.environ.get("GDB_PRESET", "")
     if choice not in ("", "stock", "linux_kernel"):
-        say("GDB_PRESET=%s is neither stock nor linux_kernel; choosing automatically" % choice)
+        say(
+            "GDB_PRESET=%s is neither stock nor linux_kernel; choosing automatically"
+            % choice
+        )
         choice = ""
     if choice == "stock":
         return
@@ -190,7 +198,9 @@ def _gdb_presets(here):
         return
 
     try:
-        loaded = any(linux_kernel_object(objfile.filename) for objfile in gdb.objfiles())
+        loaded = any(
+            linux_kernel_object(objfile.filename) for objfile in gdb.objfiles()
+        )
     except Exception:
         loaded = False
     if loaded:
@@ -199,7 +209,9 @@ def _gdb_presets(here):
 
     def on_new_objfile(event):
         try:
-            if applied or not linux_kernel_object(getattr(event.new_objfile, "filename", None)):
+            if applied or not linux_kernel_object(
+                getattr(event.new_objfile, "filename", None)
+            ):
                 return
             gdb.events.new_objfile.disconnect(on_new_objfile)
         except Exception:

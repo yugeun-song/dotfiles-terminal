@@ -9,8 +9,12 @@ WORK=$(mktemp -d)
 trap 'rm -rf -- "${WORK:?}"' EXIT
 failed=0 passed=0
 ok() {
-    if [[ "$2" == "$3" ]]; then passed=$((passed + 1))
-    else failed=$((failed + 1)); printf 'FAIL  packages: %s: got [%s], want [%s]\n' "$1" "$2" "$3"; fi
+    if [[ "$2" == "$3" ]]; then
+        passed=$((passed + 1))
+    else
+        failed=$((failed + 1))
+        printf 'FAIL  packages: %s: got [%s], want [%s]\n' "$1" "$2" "$3"
+    fi
 }
 
 S=$WORK/stub
@@ -53,30 +57,45 @@ while select.select([fd], [], [], 20)[0]:
 sys.stdout.write(out.decode(errors="replace"))
 sys.exit(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]))
 PTY
-printf 'ID=arch\n' >"$WORK/arch"; printf 'ID=debian\n' >"$WORK/debian"
+printf 'ID=arch\n' >"$WORK/arch"
+printf 'ID=debian\n' >"$WORK/debian"
 run() { env -i HOME="$WORK" PATH="$WORK/bin:$WORK/sys" STUB="$S" DOTFILES_OS_RELEASE="$WORK/$1" timeout 30 "${@:2}"; }
 for t in pacman sudo; do
-    [[ $(run arch bash -c "command -v $t") == "$WORK/bin/$t" ]] || { echo "FAIL  packages: $t is not its stub; no test was run"; exit 1; }
+    [[ $(run arch bash -c "command -v $t") == "$WORK/bin/$t" ]] || {
+        echo "FAIL  packages: $t is not its stub; no test was run"
+        exit 1
+    }
 done
-setup() { : >"$S/log"; rm -f "$S/absent"; printf '%s\n' "$@" >"$S/missing"; }
+setup() {
+    : >"$S/log"
+    rm -f "$S/absent"
+    printf '%s\n' "$@" >"$S/missing"
+}
 log() { tr '\n' ';' <"$S/log"; }
 
 setup ""
-out=$(run arch setsid -w bash "$WORK/repo/packages.sh" </dev/null 2>&1); code=$?
+out=$(run arch setsid -w bash "$WORK/repo/packages.sh" </dev/null 2>&1)
+code=$?
 ok "nothing missing: silent" "$code:$out:$(log)" "0::"
 setup kitty eza
-out=$(run arch python3 -I "$WORK/pty.py" bash "$WORK/repo/packages.sh" 2>&1); code=$?
+out=$(run arch python3 -I "$WORK/pty.py" bash "$WORK/repo/packages.sh" 2>&1)
+code=$?
 ok "the missing ones only, --needed" "$code:$(log)" "0:sudo pacman -S --needed -- eza kitty;pacman -S --needed -- eza kitty;"
-setup kitty eza; printf 'eza\n' >"$S/absent"
-out=$(run arch python3 -I "$WORK/pty.py" bash "$WORK/repo/packages.sh" 2>&1); code=$?
+setup kitty eza
+printf 'eza\n' >"$S/absent"
+out=$(run arch python3 -I "$WORK/pty.py" bash "$WORK/repo/packages.sh" 2>&1)
+code=$?
 ok "one no repository carries is left" "$code:$(log)" "0:sudo pacman -S --needed -- kitty;pacman -S --needed -- kitty;"
 setup kitty
-out=$(run arch setsid -w bash "$WORK/repo/packages.sh" </dev/null 2>&1); code=$?
+out=$(run arch setsid -w bash "$WORK/repo/packages.sh" </dev/null 2>&1)
+code=$?
 ok "no terminal: exit 3, nothing installed" "$code:$(log)" "3:"
-out=$(run arch setsid -w bash "$WORK/repo/packages.sh" --check </dev/null 2>&1); code=$?
+out=$(run arch setsid -w bash "$WORK/repo/packages.sh" --check </dev/null 2>&1)
+code=$?
 ok "--check installs nothing" "$code:$(log)" "0:"
-out=$(run debian python3 -I "$WORK/pty.py" bash "$WORK/repo/packages.sh" 2>&1); code=$?
+out=$(run debian python3 -I "$WORK/pty.py" bash "$WORK/repo/packages.sh" 2>&1)
+code=$?
 ok "off Arch: nothing" "$code:$(log)" "0:"
 
-if (( failed )); then exit 1; fi
+if ((failed)); then exit 1; fi
 echo "PASS  packages: $passed checks"
