@@ -765,6 +765,7 @@ doctor() {
     local -a missing=()
     for tool in "eza:el" "fzf:Ctrl-R and Ctrl-T in zsh" "tmux:tmux.conf" "wl-copy:tmux and zsh vi-mode yanks" \
                 "gdb:the gdb presets" "node:the node REPL helpers" "iex:the IEx helpers" "irb:the irb helpers" \
+                "luajit:the LuaJIT REPL helpers" \
                 "fastfetch:fastfetch/config.jsonc" "yazi:yazi/theme.toml" "gh:git credentials for GitHub"; do
         command -v "${tool%%:*}" >/dev/null 2>&1 || missing+=("${tool%%:*} (${tool#*:})")
     done
@@ -801,6 +802,8 @@ step file node/repl.js      "$CONFIG/node/repl.js"
 # NODE_OPTIONS reaches every node, scripts included; repl.js defines nothing
 # outside an interactive REPL.
 step file node/node.sh      "$CONFIG/profile.d/node.sh"
+step file luajit/repl.lua   "$CONFIG/luajit/repl.lua"
+step file luajit/luajit.sh  "$CONFIG/profile.d/luajit.sh"
 # File by file: mirroring the directory would prune a gdbinit kept there.
 step file gdb/presets.py    "$CONFIG/gdb/presets.py"
 step file gdb/debug-max.gdb "$CONFIG/gdb/debug-max.gdb"

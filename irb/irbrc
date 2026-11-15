@@ -1,25 +1,82 @@
 # frozen_string_literal: true
 
 # Read by irb only; a project's own .irbrc in the working directory is read after this one.
-module IrbHelpers
-  BASES = { hex: [16, '0x'], bin: [2, '0b'], oct: [8, '0o'] }.freeze
+return if defined?(IrbHelpers)
 
-  BASES.each do |name, (radix, prefix)|
-    define_method(name) do |value|
-      number = IrbHelpers.to_number(name, value)
-      puts IrbHelpers.format(number, radix, prefix)
+module IrbHelpers
+  BASES = { bin: [2, '0b'], oct: [8, '0o'], dec: [10, ''], hex: [16, '0x'] }.freeze
+  INTS = [8, 16, 32, 64].flat_map { |bits| [[:"u#{bits}", [bits, false]], [:"s#{bits}", [bits, true]]] }.to_h.freeze
+  FLOATS = { f32: 'f', f64: 'd' }.freeze
+  TYPES = [*INTS.keys, *FLOATS.keys, :big].freeze
+  NAMES = [*BASES.keys, *TYPES].freeze
+  NONE = Object.new.freeze
+
+  class << self
+    attr_accessor :shown, :hooked
+  end
+
+  BASES.each_key do |name|
+    define_method(name) do |value = NONE, *options|
+      next name if NONE.equal?(value)
+
+      number = IrbHelpers.number(name, value)
+      IrbHelpers.show(name, number, options)
       number
     end
   end
 
-  def self.to_number(name, value)
+  TYPES.each do |name|
+    define_method(name) do |value = NONE|
+      NONE.equal?(value) ? name : IrbHelpers.cast(name, IrbHelpers.number(name, value))
+    end
+  end
+
+  def self.show(name, number, options)
+    base, type = pick(name, options)
+    self.shown = [name, base, type]
+    puts render(name, number, base, type) unless hooked
+  end
+
+  def self.pick(name, options)
+    base = type = nil
+    options.each do |option|
+      key = named(option)
+      if BASES.key?(key)
+        base = one(name, 'base', base, key)
+      elsif TYPES.include?(key)
+        type = one(name, 'type', type, key)
+      else
+        raise ArgumentError, "#{name} expects options among #{NAMES.join(', ')}, got #{describe(option)}"
+      end
+    end
+    [base || name, type]
+  end
+
+  def self.named(option)
+    option.to_s.downcase.to_sym if Symbol === option || (String === option && option.valid_encoding?)
+  end
+
+  def self.one(name, kind, old, new)
+    raise ArgumentError, "#{name} takes one #{kind}, got #{old} and #{new}" if old && old != new
+
+    new
+  end
+
+  def self.describe(value)
+    text = value.inspect
+    text.length > 80 ? "#{text[0, 77]}..." : text
+  rescue StandardError
+    'an object that cannot be inspected'
+  end
+
+  def self.number(name, value)
     case value
     when Integer then value
     when Float then finite(name, value)
     when true, false then value ? 1 : 0
     when String then code_point(name, value)
     else
-      raise ArgumentError, "#{name} expects an integer, float, boolean, or single character, got #{value.inspect}"
+      raise ArgumentError, "#{name} expects an integer, float, boolean, or single character, got #{describe(value)}"
     end
   end
 
@@ -30,33 +87,99 @@ module IrbHelpers
   end
 
   def self.code_point(name, value)
-    return value.ord if value.valid_encoding? && value.length == 1
-
-    raise ArgumentError, "#{name} expects a single character, got #{value.inspect} (#{value.length} code points)"
-  end
-
-  def self.format(number, radix, prefix)
-    return "-#{format(-number, radix, prefix)}" if number.negative? || (number.is_a?(Float) && (1.0 / number).negative?)
-
-    whole = number.to_i
-    digits = prefix + whole.to_s(radix).upcase
-    fraction = number - whole
-    fraction.zero? ? digits : "#{digits}.#{fraction_digits(fraction, radix)}"
-  end
-
-  def self.fraction_digits(fraction, radix)
-    out = +''
-    until fraction.zero?
-      fraction *= radix
-      digit = fraction.to_i
-      out << digit.to_s(radix).upcase
-      fraction -= digit
+    unless value.valid_encoding?
+      raise ArgumentError, "#{name} expects a validly encoded character, got #{describe(value)}"
     end
-    out
+    return value.ord if value.length == 1
+
+    raise ArgumentError, "#{name} expects a single character, got #{describe(value)} (#{value.length} code points)"
+  end
+
+  def self.cast(type, number)
+    if INTS.key?(type)
+      wrap(number.to_i, *INTS[type])
+    elsif FLOATS.key?(type)
+      [number].pack(FLOATS[type]).unpack1(FLOATS[type])
+    else
+      number.to_i
+    end
+  end
+
+  def self.wrap(number, bits, signed)
+    number &= (1 << bits) - 1
+    signed && number[bits - 1] == 1 ? number - (1 << bits) : number
+  end
+
+  def self.real?(value, type)
+    type ? FLOATS.key?(type) : value.is_a?(Float)
+  end
+
+  def self.render(name, value, base, type)
+    radix, prefix = BASES[base]
+    value = cast(type, value) if type
+    return real(value, radix, prefix) if value.is_a?(Float)
+    return whole(value, radix, prefix) if type == :big
+
+    bits, signed = INTS[type || :u64]
+    wide(name) unless type || value.bit_length <= (value.negative? ? 63 : 64)
+    value = wrap(value, bits, signed)
+    radix == 10 ? value.to_s : whole(value & ((1 << bits) - 1), radix, prefix)
+  end
+
+  def self.wide(name)
+    warn "#{name}: the value is wider than 64 bits and only the low 64 are shown; pass :big to see all of it"
+  end
+
+  def self.whole(number, radix, prefix)
+    "#{'-' if number.negative?}#{prefix}#{number.abs.to_s(radix).upcase}"
+  end
+
+  def self.real(number, radix, prefix)
+    return number.to_s if radix == 10 || !number.finite?
+
+    whole, fraction = number.abs.divmod(1)
+    text = +"#{'-' if (1 / number).negative?}#{whole(whole, radix, prefix)}"
+    text << '.' unless fraction.zero?
+    until fraction.zero?
+      digit, fraction = (fraction * radix).divmod(1)
+      text << digit.to_s(radix).upcase
+    end
+    text
+  end
+
+  def self.result(value)
+    name, base, type = shown
+    return unless name && (value.is_a?(Integer) || value.is_a?(Float))
+
+    text = render(name, value, base, type)
+    defined?(IRB::Color) ? IRB::Color.colorize(text, [real?(value, type) ? :MAGENTA : :BLUE, :BOLD]) : text
+  rescue StandardError
+    nil
   end
 end
 
 TOPLEVEL_BINDING.receiver.extend(IrbHelpers)
+
+if %i[evaluate inspect_last_value].all? { |hook| IRB::Context.method_defined?(hook) }
+  IRB::Context.prepend(Module.new do
+    def evaluate(...)
+      IrbHelpers.shown = nil
+      super
+    end
+
+    def inspect_last_value(*output)
+      text = IrbHelpers.result(last_value)
+      return super unless text
+
+      begin
+        (output.first || +'') << text
+      rescue StandardError
+        super
+      end
+    end
+  end)
+  IrbHelpers.hooked = true
+end
 
 run_dir = ENV.fetch('XDG_RUNTIME_DIR', '')
 IRB.conf[:HISTORY_FILE] = File.join(run_dir, 'irb_history') if !run_dir.empty? && File.directory?(run_dir)

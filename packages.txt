@@ -19,6 +19,7 @@ nodejs
 npm
 elixir
 ruby-irb
+luajit
 fastfetch
 yazi
 github-cli

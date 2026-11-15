@@ -1,8 +1,8 @@
 # dotfiles-terminal
 
 Shell, prompt, terminal and debugger configuration: zsh, bash, kitty, tmux,
-gdb, git, and number-base helpers for the node, IEx and irb REPLs. The desktop
-(Hyprland, the bar, the session) lives in
+gdb, git, and number-base helpers for the node, IEx, irb and LuaJIT REPLs.
+The desktop (Hyprland, the bar, the session) lives in
 [dotfiles-desktop](https://github.com/yugeun-song/dotfiles-desktop); no file
 is installed by both.
 
@@ -17,8 +17,8 @@ checks the premise first and writes nothing when it is not met, an
 unrecognised distribution included. Within it, the files adapt: fzf's two
 scripts come from the distribution's files, or from `fzf --zsh` where those
 are incomplete; pwndbg from `~/pwndbg` or `/usr/share/pwndbg`. Optional
-tools (eza, fzf, tmux, wl-copy, gdb, pwndbg, node, IEx, irb, fastfetch, yazi, gh,
-the two fonts) are listed by the closing doctor line when missing; each
+tools (eza, fzf, tmux, wl-copy, gdb, pwndbg, node, IEx, irb, LuaJIT, fastfetch,
+yazi, gh, the two fonts) are listed by the closing doctor line when missing; each
 feature does without its tool.
 
 ## Layout
@@ -29,11 +29,11 @@ bash/         bashrc, for rescue shells and containers
 shell/        path.sh (PATH order), man.sh, ssh.sh (ssh in kitty), for both shells
 bin/          el: eza's long listing as a script sudo can run
 kitty/        kitty.conf, ssh.conf, the spaceduck palette, the search kitten
-tmux/ npm/ fastfetch/ yazi/ git/ gdb/ node/ iex/ irb/
+tmux/ npm/ fastfetch/ yazi/ git/ gdb/ node/ iex/ irb/ luajit/
 install.sh    places the files (below)
 bootstrap.sh  clones what is not a file here, sets the login shell
 packages.txt  what install.sh installs first (packages.sh)
-tests/        run.sh: static checks, the fzf lookup, the installer suite
+tests/        run.sh: static checks, the REPL helpers, the fzf lookup, the installer suite
 ```
 
 ## Install
@@ -103,7 +103,7 @@ RHEL's default `secure_path` lacks `/usr/local/bin`; there, add it or call
 - `bashrc` reads `/etc/bashrc` where it exists: Fedora and RHEL leave their
   system bashrc to the user's file.
 - Both shells source the `~/.config/profile.d/*.sh` files this user owns and
-  others cannot write; `node/node.sh` goes there.
+  others cannot write; `node/node.sh` and `luajit/luajit.sh` go there.
 - History holds 500000 entries in both shells; bash appends, so concurrent
   sessions do not overwrite each other. A line that carries a secret is never
   saved: an assignment to a name like `*_TOKEN`, `password` or `API_KEY`, an
@@ -165,20 +165,29 @@ tree with `-iex`, which gdb runs after the init file, so `lx-*` still loads
 there. pwndbg is sourced before anything imports gdb's Python package, so an
 Arch cross gdb whose package lags gdb-common still starts it.
 
-## node, IEx and irb
+## node, IEx, irb and LuaJIT
 
-`hex`, `oct` and `bin` print a number in that base and return it, so they nest
-in arithmetic; a single character stands for its code point (`hex("A")` is
-`0x41`). In node they exist only in an interactive REPL, never under `-e`,
-`-p`, a script or a worker. A project's own `.iex.exs` replaces this one
-unless it calls `import_file("~/.iex.exs")`. In irb they belong to the
-top-level object only; irb also runs a `.irbrc` in the directory it starts
-in, after this one.
+`bin`, `oct`, `dec` and `hex` return their number, so they nest in arithmetic,
+and the result line shows the statement's value once: in the base called
+last, as a `u64`. A type after the value changes the width, `hex(x, u16)` or
+`:u16` in IEx and irb: `u8` to `u64`, `s8` to `s64`, `f32`, `f64`, and `big`
+for no width. Those names are functions too and convert like a C cast. A
+single character stands for its code point. A value wider than 64 bits is
+cut, with a note.
+
+A node or LuaJIT number is exact up to 2^53 and its bit operations are
+32-bit; BigInt and `ULL` literals carry 64 bits. LuaJIT shows a value only
+for `=expression` and has no `big`. In both, the helpers exist only in an
+interactive REPL, never under `-e`, a script or a worker; `LUA_INIT` reaches
+every `lua` as well and does nothing there. A project's own `.iex.exs`
+replaces this one unless it calls `import_file("~/.iex.exs")`. In irb they
+belong to the top-level object only; irb also runs a `.irbrc` in the
+directory it starts in, after this one.
 
 ## Checks
 
 ```sh
-tests/run.sh    # shellcheck, zsh/python/node syntax, the fzf lookup, then install.sh on a temporary HOME
+tests/run.sh    # shellcheck, the syntax checks, the REPL helpers, the fzf lookup, then install.sh on a temporary HOME
 ```
 
 The installer suite never touches the real HOME: each case runs on its own
