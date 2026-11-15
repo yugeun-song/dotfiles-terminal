@@ -47,6 +47,8 @@ session() {
         ok=0
         if [[ ${WANT[i]} == "~"* ]]; then
             [[ ${got[i]-} =~ ${WANT[i]#\~} ]] && ok=1
+        elif [[ ${WANT[i]} == "*"* ]]; then
+            [[ ${got[i]-} == *"${WANT[i]#\*}"* ]] && ok=1
         elif [[ ${got[i]-} == "${WANT[i]}" ]]; then
             ok=1
         fi
@@ -60,7 +62,40 @@ session() {
     ASK=() WANT=()
 }
 
-WIDE='hex: the value is wider than 64 bits and only the low 64 are shown'
+documented() {
+    local ask want
+    while IFS=$'\037' read -r ask want; do t "$ask" "$want"; done < <(awk '
+        function spans(text, list,    count) {
+            count = 0
+            while (match(text, /`[^`]*`/)) {
+                list[++count] = substr(text, RSTART + 1, RLENGTH - 2)
+                gsub(/\\\|/, "|", list[count])
+                text = substr(text, RSTART + RLENGTH)
+            }
+            return count
+        }
+        /^\| Input \| (Result|Error) \|$/ { mode = $4; next }
+        /^\| TYPE \| / { mode = "matrix"; spans($0, header); next }
+        /^\|-/ { next }
+        !/^\| / { mode = ""; next }
+        mode == "matrix" {
+            count = spans($0, cell)
+            for (i = 2; i <= count; i++) {
+                ask = header[i - 1]
+                gsub(/TYPE/, cell[1], ask)
+                print ask "\037" cell[i]
+            }
+            next
+        }
+        mode {
+            count = spans($0, cell)
+            want = ""
+            for (i = 2; i <= count; i++) want = want (i > 2 ? " | " : "") cell[i]
+            print cell[1] "\037" (mode == "Error" ? "*" : "") want
+        }' "$REPO/docs/repl/$1.md")
+}
+
+WIDE='hex: the value is wider than 64 bits and was cut to the low 64'
 NAMES='bin, oct, dec, hex, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64'
 EACH='0x5 | 0b110 | 6'
 
@@ -82,24 +117,53 @@ if command -v irb >/dev/null 2>&1; then
     t 'hex(0x12345, "U16")' '0x2345'
     t 'bin(0x1000, hex)' '0x1000'
     t 'u8(300) + s8(200)' '-12'
+    t 'u32(0xFFFFFFFF) + 1' '0'
+    t 's32(-7) / 2' '-3'
+    t 's32(-7) % 2' '-1'
+    t 'u8(250) + u8(10)' '260'
+    t 's32(-1) < u32(1)' 'false'
+    t 'hex(u64(-1) >> 60)' '0xF'
+    t 'hex(s64(-1) >> 60)' '0xFFFFFFFFFFFFFFFF'
+    t 'hex(0xFFFF, u16) + 1' '0x10000'
+    t '2 ** u8(3)' '8'
+    t 's32(1e10)' '-2147483648'
+    t 'hex(-1, :int)' '0xFFFFFFFF'
+    t 'dec(200, "signed char")' '-56'
+    t 'cast("unsigned long", -1)' '18446744073709551615'
+    t 'sizeof(:int) - 5' '18446744073709551615'
+    t 'u64(1) << 64' '~^u64: a shift by 64 is undefined in C; x86-64 uses the low 6 bits of the count \| 1$'
+    t 'u32(7) / 0' '~divided by 0 \(ZeroDivisionError\)'
     t 'hex(1.5)' '0x1.8'
     t 'hex(0.1, f32)' '0x0.199999A'
     t 'hex(-0.0)' '-0x0'
     t 'hex("A")' '0x41'
-    t 'hex(1 << 64)' "$WIDE; pass :big to see all of it | 0x0"
+    t 'hex(1 << 64)' "$WIDE; pass :big to keep all of it | 0x0"
     t 'hex(1 << 64, :big)' '0x10000000000000000'
     t 'hex(-255, big)' '-0xFF'
-    t 'x = hex(16)' '0x10'
-    t 'x' '16'
+    t 'x = hex(0x12345, u16)' '0x2345'
+    t 'x' '9029'
+    t 'x >> 4' '564'
     t '[hex(1), bin(2)]' '[1, 2]'
     t 'hex("AB")' '~hex expects a single character, got "AB" \(2 code points\) \(ArgumentError\)'
     t '7' '7'
-    t 'hex(1, :foo)' "~hex expects options among $NAMES, big, got :foo"
+    t 'hex(1, :foo)' "~hex expects options among $NAMES, big or a C type name, got :foo"
+    t 'hex(1, "long long long")' '~or a C type name, got "long long long"'
     t 'hex(1, :u8, :u16)' '~hex takes one type, got u8 and u16'
     t 'hex(nil)' '~hex expects an integer, float, boolean, or single character, got nil'
     t 'hex(Float::NAN)' '~hex expects a finite number, got NaN \(RangeError\)'
     t 'hex(1, BasicObject.new)' '~hex expects options among'
     irb_session irb
+    documented irb
+    irb_session 'irb, as documented'
+    while IFS=$'\037' read -r ask want; do t "$ask" "$want"; done < <(awk '
+        match($0, /^ *#   /) && index($0, " # => ") {
+            line = substr($0, RLENGTH + 1)
+            at = index(line, " # => ")
+            ask = substr(line, 1, at - 1)
+            sub(/ +$/, "", ask)
+            print ask "\037" substr(line, at + 6)
+        }' "$REPO/irb/irbrc")
+    irb_session 'irb, as its comments say'
 
     HOME_DIR=$WORK/plain
     printf '%s\n' 'class << IRB::Context' '  def method_defined?(*)' '    false' '  end' 'end' "load '$WORK/irbrc'" \
@@ -123,25 +187,33 @@ if command -v iex >/dev/null 2>&1; then
     t 'hex(0x12345, "U16")' '0x2345'
     t 'bin(0x1000, hex)' '0x1000'
     t 'u8(300) + s8(200)' '-12'
+    t 'hex(-1) >>> 4' '0xFFFFFFFFFFFFFFF'
+    t 's32(1.0e10)' '-2147483648'
+    t 'hex(-1, :int)' '0xFFFFFFFF'
+    t 'dec(200, "signed char")' '-56'
+    t 'cast("unsigned long", -1)' '18446744073709551615'
+    t 'sizeof(:int)' '4'
     t 'hex(1.5)' '0x1.8'
     t 'hex(0.1, :f32)' '0x0.199999A'
     t 'hex(-0.0)' '-0x0'
     t 'hex("A")' '0x41'
     t 'hex(~c"A")' '0x41'
-    t 'hex(1 <<< 64)' "$WIDE; pass :big to see all of it | 0x0"
+    t 'hex(1 <<< 64)' "$WIDE; pass :big to keep all of it | 0x0"
     t 'hex(1 <<< 64, :big)' '0x10000000000000000'
-    t 'x = hex(16)' '0x10'
-    t 'x' '16'
+    t 'x = hex(0x12345, u16)' '0x2345'
+    t 'x' '9029'
     t '[hex(1), bin(2)]' '[1, 2]'
     t 'hex("AB")' '~\(ArgumentError\) hex expects a single character, got "AB" \(2 code points\)'
     t '7' '7'
-    t 'hex(1, :foo)' "~hex expects options among $NAMES, big, got :foo"
+    t 'hex(1, :foo)' "~hex expects options among $NAMES, big or a C type name, got :foo"
     t 'hex(1, :u8, :u16)' '~hex takes one type, got u8 and u16'
     t 'hex(<<255>>)' '~hex expects valid UTF-8, got <<255>>'
     t 'f32(1.0e39)' '~f32 cannot hold 1.0e39'
     t 'respawn()' '~^Interactive Elixir [^|]*$'
     t 'hex(255)' '0xFF'
     iex_session iex "$WORK/iex.exs"
+    documented iex
+    iex_session 'iex, as documented' "$WORK/iex.exs"
 
     sed '/^if Code.ensure_loaded/,$d' "$WORK/iex.exs" >"$WORK/plain.exs"
     t 'bin(hex(5) + 1)' "$EACH"
@@ -156,30 +228,39 @@ if command -v node >/dev/null 2>&1; then
     t 'bin(hex(0x10) << 2)' '0b1000000'
     t 'hex(1) + bin(2)' '0b11'
     t 'hex(~0x1000)' '0xFFFFFFFFFFFFEFFF'
-    t 'dec(~0x1000, s64)' '-4097'
+    t 'dec(~0x1000, s64)' '-4097n'
+    t 'dec(~0x1000, s32)' '-4097'
     t 'hex(-1, u16)' '0xFFFF'
     t 'hex(0x12345, "U16")' '0x2345'
     t 'bin(0x1000, hex)' '0x1000'
     t 'u8(300) + s8(200)' '-12'
+    t 'hex(-1n) >> 4n' '0xFFFFFFFFFFFFFFFn'
+    t 'hex(-1, "int")' '0xFFFFFFFF'
+    t 'dec(200, "signed char")' '-56'
+    t 'cast("unsigned long", -1)' '18446744073709551615n'
+    t 'sizeof("int")' '4'
     t 'hex(1.5)' '0x1.8'
     t 'hex(0.1, f32)' '0x0.199999A'
     t 'hex("A")' '0x41'
     t 'hex(255n)' '0xFFn'
     t 'u64(-1)' '18446744073709551615n'
-    t 'hex(1n << 64n)' "$WIDE; pass big to see all of it | 0x0n"
+    t 'hex(1n << 64n)' "$WIDE; pass big to keep all of it | 0x0n"
     t 'hex(1n << 64n, big)' '0x10000000000000000n'
     t 'hex(0xffffffff81001234)' '~^hex: 18446744071578850000 is past 2\*\*53, .* \| 0xFFFFFFFF81001000$'
-    t 'x = hex(16)' '0x10'
-    t 'x' '16'
+    t 'x = hex(0x12345, u16)' '0x2345'
+    t 'x' '9029'
     t 'typeof hex(5)' "'number'"
     t '[hex(1), bin(2)]' '[ 1, 2 ]'
     t 'hex("AB")' "~TypeError: hex\(\) expects a single character, got 'AB' \(2 code points\)"
     t '7' '7'
-    t 'hex(1, "foo")' "~hex\(\) expects options among $NAMES, big, got 'foo'"
+    t 'hex(1, "foo")' "~hex\(\) expects options among $NAMES, big or a C type name, got 'foo'"
+    t 'hex(1, "__proto__")' "~or a C type name, got '__proto__'"
     t 'hex(1, u8, u16)' '~hex\(\) takes one type, got u8 and u16'
     t 'hex(NaN)' '~RangeError: hex\(\) expects a finite number, got NaN'
     t 'u8(1, 2)' '~u8\(\) takes one value, got 2'
     node_session node "--require $WORK/repl.js"
+    documented node
+    node_session 'node, as documented' "--require $WORK/repl.js"
 
     echo 'Object.defineProperty(require("node:repl"), "start", { writable: false });' >"$WORK/fixed.js"
     t 'bin(hex(5) + 1)' "$EACH"
@@ -203,23 +284,38 @@ if command -v luajit >/dev/null 2>&1; then
     t '=hex(0x12345, "U16")' '0x2345'
     t '=bin(0x1000, hex)' '0x1000'
     t '=u8(300) + s8(200)' '-12'
+    t '=u32(0xFFFFFFFF) + 1' '0'
+    t '=s32(-7) / 2' '-3'
+    t '=s32(-7) % 2' '-1'
+    t '=u8(250) + u8(10)' '260'
+    t '=(u8(250) + u8(10)).type' 's32'
+    t '=s32(-1) < u32(1)' 'false'
+    t '=hex(rshift(u64(-1), 60))' '0xF'
+    t '=hex(arshift(s64(-1), 60))' '0xFFFFFFFFFFFFFFFF'
+    t '=hex(-1, "int")' '0xFFFFFFFF'
+    t '=dec(200, "signed char")' '-56'
+    t '=cast("unsigned long", -1)' '18446744073709551615'
+    t '=sizeof("int") - 5' '18446744073709551615'
+    t '=u32(7) / 0' '~^attempt to divide by zero'
     t '=hex(1.5)' '0x1.8'
     t '=hex(0.1, f32)' '0x0.199999A'
     t '=hex("A")' '0x41'
-    t '=hex(255ULL)' '0xFFULL'
-    t '=u64(-1)' '18446744073709551615ULL'
-    t '=hex(0xffffffffffffffffULL + 1)' '0x0ULL'
+    t '=hex(255ULL)' '0xFF'
+    t '=u64(-1)' '18446744073709551615'
+    t '=hex(0xffffffffffffffffULL + 1)' '0x0'
     t '=hex(2^64)' "~^hex: 18446744073709551616 is past 2\^53, .* \| $WIDE \| 0x0$"
     t 'x = hex(16)' ''
     t '=x' '16'
     t 'print(hex(255), 10)' $'0xFF\t0xA'
     t '=hex("AB")' '~^hex expects a single character, got "AB" \(2 code points\)'
     t '=7' '7'
-    t '=hex(1, "foo")' "~hex expects options among $NAMES, got \"foo\""
+    t '=hex(1, "foo")' "~hex expects options among $NAMES or a C type name, got \"foo\""
     t '=hex(1, u8, u16)' '~hex takes one type, got u8 and u16'
     t '=hex(0/0)' '~hex expects a finite number, got -?nan'
     t '=u8(1, 2)' '~u8 takes one value, got 2'
     luajit_session luajit "$init"
+    documented luajit
+    luajit_session 'luajit, as documented' "$init"
 
     t '=bin(hex(5) + 1)' "$EACH"
     luajit_session 'luajit without its hooks' "setmetatable(_G, { __metatable = false }) $init"

@@ -166,6 +166,14 @@ if [[ -x $T/home/.local/bin/el ]]; then pass; else fail "el is executable"; fi
 if [[ -s $T/home/.local/state/dotfiles-terminal/installed ]]; then pass; else fail "the manifest is written"; fi
 has "the git include is in the temporary HOME" "$(cat "$T/home/.gitconfig")" "path = $T/repo/git/gitconfig"
 has "the gdb block" "$(cat "$T/home/.gdbinit")" "source $T/home/.config/gdb/presets.py"
+if command -v rdoc >/dev/null 2>&1 && command -v ri >/dev/null 2>&1; then
+    # shellcheck disable=SC2088 # the installer prints the ~ itself
+    has "fresh install files the irb documentation" "$out" "the irb helpers' documentation in ~/.local/share/rdoc"
+    has "ri finds a helper" "$(installer -- ri --no-pager hex 2>&1)" "hex(value, *options) -> number"
+    has "ri finds a type" "$(installer -- ri --no-pager u16 2>&1)" "(uint16_t)value"
+    has "ri finds the typed integer" "$(installer -- ri --no-pager IrbHelpers::Int 2>&1)" "Promotion"
+    is "only the helpers are documented" "$(find "$T/home/.local/share/rdoc" -mindepth 1 -maxdepth 1 -type d -printf '%f\n')" IrbHelpers
+fi
 before=$(tree)
 run
 is "re-run" "$code" 0

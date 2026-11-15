@@ -824,6 +824,36 @@ git_include() {
     branch "$GREEN✓$RESET included $(tilde "$include") from the global git config"
 }
 
+# irb's completion dialog, its show_doc and ri all read ri data. rdoc writes
+# the helpers' part, from the comments in irb/irbrc, into ri's home store,
+# beside whatever is there; $STATE/irb-docs records which irbrc it came from.
+irb_docs() {
+    local store=$HOME/.rdoc stamp=$STATE/irb-docs blob
+    command -v rdoc >/dev/null 2>&1 || return 0
+    [[ -d $store ]] || store=$(xdg_dir XDG_DATA_HOME "$HOME/.local/share")/rdoc
+    blob=$(blob_of "$SRC/irb/irbrc") || return 0
+    if [[ -f $store/IrbHelpers/cdesc-IrbHelpers.ri && -r $stamp && $(<"$stamp") == "$blob" ]]; then
+        UNCHANGED=$((UNCHANGED + 1))
+        GROUP_SAME=$((GROUP_SAME + 1))
+        return 0
+    fi
+    if [[ $MODE == check ]]; then
+        todo "${YELLOW}behind the irb helpers' documentation in $(tilde "$store")$RESET"
+        return 0
+    fi
+    # rdoc takes a file for Ruby by its extension.
+    mkdir -p -- "$WORK/irb" || stop "could not create $WORK/irb"
+    cp -- "$SRC/irb/irbrc" "$WORK/irb/irbrc.rb" || stop "could not copy irb/irbrc"
+    if ! (cd -- "$WORK/irb" && RDOCOPT='' rdoc --ri --quiet --force-update irbrc.rb) >/dev/null 2>&1; then
+        NOTES+=("rdoc could not write the irb helpers' documentation into $(tilde "$store"), so irb shows none for them")
+        return 0
+    fi
+    printf '%s\n' "$blob" >"$stamp" || stop "could not write $(tilde "$stamp")"
+    INSTALLED=$((INSTALLED + 1))
+    GROUP_WROTE=$((GROUP_WROTE + 1))
+    branch "$GREEN✓$RESET the irb helpers' documentation in $(tilde "$store")"
+}
+
 # sudo looks for commands only in its secure_path, so `sudo el` needs a
 # root-owned copy there. Printed, never run: this script does not use sudo.
 el_root_copy() {
@@ -899,15 +929,16 @@ step gone shell/debug.sh "$HOME/.config/debug-max/debug-max.sh"
 step seed zsh/p10k.zsh "$HOME/.p10k.zsh"
 step gdb "" "the gdb presets block"
 step git git/gitconfig "the global git include"
+step ri irb/irbrc "the irb helpers' documentation"
 step el bin/el "the root copy of el in $ROOT_EL"
 
 # The group a step's branches go under: its own directory, "home files" for
-# the single files, "gdb and git" for the two managed entries.
+# the single files, "gdb, git and irb" for the three managed entries.
 group_of() {
     case ${STEP_KIND[$1]} in
         dir) tilde "${STEP_DST[$1]}" ;;
         file | exe | seed | gone) printf 'home files' ;;
-        gdb | git) printf 'gdb and git' ;;
+        gdb | git | ri) printf 'gdb, git and irb' ;;
         *) printf '' ;;
     esac
 }
@@ -925,6 +956,7 @@ run_step() {
         gone) retire_file "${STEP_SRC[i]}" "${STEP_DST[i]}" ;;
         gdb) gdb_presets ;;
         git) git_include ;;
+        ri) irb_docs ;;
         el) el_root_copy ;;
     esac
 }

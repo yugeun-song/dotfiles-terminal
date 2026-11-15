@@ -30,6 +30,7 @@ shell/        path.sh (PATH order), man.sh, ssh.sh (ssh in kitty), for both shel
 bin/          el: eza's long listing as a script sudo can run
 kitty/        kitty.conf, ssh.conf, the spaceduck palette, the search kitten
 tmux/ npm/ fastfetch/ yazi/ git/ gdb/ node/ iex/ irb/ luajit/
+docs/         repl/: every case of the REPL helpers, replayed by tests/repl.sh
 install.sh    places the files (below)
 bootstrap.sh  clones what is not a file here, sets the login shell
 packages.txt  what install.sh installs first (packages.sh)
@@ -64,7 +65,8 @@ the repository dropped and keeps the ones it never had (kitty's
 file gdb reads gets a **managed block** at its top (pwndbg's location and
 `presets.py`), with a `.bak-STAMP` of the previous file. `git/gitconfig` is
 **included** from the global git config by its absolute path, so a moved
-checkout needs `install.sh` again.
+checkout needs `install.sh` again. rdoc files the irb helpers' documentation
+in ri's home store (`~/.local/share/rdoc`), beside whatever is there.
 
 A target holding content this repository did not install (another tool's
 edit, or a file that was there first) is a **conflict**: the diff is shown,
@@ -168,12 +170,16 @@ Arch cross gdb whose package lags gdb-common still starts it.
 ## node, IEx, irb and LuaJIT
 
 `bin`, `oct`, `dec` and `hex` return their number, so they nest in arithmetic,
-and the result line shows the statement's value once: in the base called
-last, as a `u64`. A type after the value changes the width, `hex(x, u16)` or
-`:u16` in IEx and irb: `u8` to `u64`, `s8` to `s64`, `f32`, `f64`, and `big`
-for no width. Those names are functions too and convert like a C cast. A
-single character stands for its code point. A value wider than 64 bits is
-cut, with a note.
+and the result line shows the statement's value once, in the base called
+last. Numbers follow C on x86-64 Linux (GCC, LP64): with no type a value is a
+`u64`, and a type after it converts as a cast does, `hex(x, u16)`, `:u16` in
+IEx and irb, or a C name such as `"unsigned long"`: `u8` to `u64`, `s8` to
+`s64`, `f32`, `f64`, and `big` for no width. Those names are functions too,
+beside `cast(type, x)` and `sizeof`. In irb and LuaJIT a converted value
+keeps its type and computes by C's rules (promotion, wrapping, truncating
+division); IEx and node cannot change their operators, so there it is a plain
+number, cut where it was converted. [docs/repl](docs/repl/README.md) lists
+every case and error, and `tests/repl.sh` runs each one.
 
 A node or LuaJIT number is exact up to 2^53 and its bit operations are
 32-bit; BigInt and `ULL` literals carry 64 bits. LuaJIT shows a value only
@@ -181,8 +187,9 @@ for `=expression` and has no `big`. In both, the helpers exist only in an
 interactive REPL, never under `-e`, a script or a worker; `LUA_INIT` reaches
 every `lua` as well and does nothing there. A project's own `.iex.exs`
 replaces this one unless it calls `import_file("~/.iex.exs")`. In irb they
-belong to the top-level object only; irb also runs a `.irbrc` in the
-directory it starts in, after this one.
+belong to the top-level object only, the completion dialog, `show_doc` and
+`ri` show their documentation, and irb also runs a `.irbrc` in the directory
+it starts in, after this one.
 
 ## Checks
 

@@ -3,165 +3,877 @@
 # Read by irb only; a project's own .irbrc in the working directory is read after this one.
 return if defined?(IrbHelpers)
 
+require 'forwardable'
+
+##
+# Number-base helpers for irb that compute the way C does on x86-64 Linux (GCC, LP64): a value has a width, what
+# does not fit is cut, a negative number is its two's complement pattern, and division truncates.
+#
+# == Showing a value
+#
+# +bin+, +oct+, +dec+ and +hex+ return their number, so they nest in arithmetic. The result line shows the
+# statement's value once, in the base of the helper called last.
+#
+#   hex(255)              # => 0xFF
+#   bin(hex(0x10) << 2)   # => 0b1000000
+#   hex(1) + bin(2)       # => 0b11
+#   x = hex(16)           # => 0x10
+#   x                     # => 16
+#
+# == Types
+#
+# A value carries a C type. With no type written, a number is a +u64+. A type after the value converts it as a C
+# cast does; write it as +u16+, <tt>:u16</tt> or <tt>"u16"</tt>.
+#
+#   hex(-1)               # => 0xFFFFFFFFFFFFFFFF
+#   hex(-1, s16)          # => 0xFFFF
+#   dec(0xFFFF, s16)      # => -1
+#   hex(0x12345, u16)     # => 0x2345
+#   hex(1 << 100, big)    # => 0x10000000000000000000000000
+#
+# u8 s8 u16 s16 u32 s32 u64 s64:: a fixed-width integer, an IrbHelpers::Int
+# f32 f64:: a Float; +f32+ is rounded to single precision
+# big:: no width, a plain Integer: nothing is cut and a negative number keeps its sign
+#
+# The same names are functions that convert: <tt>u16(0x12345)</tt> is C's <tt>(uint16_t)0x12345</tt>.
+#
+# A type can also be spelled as C spells it, as a Symbol or a String: <tt>:int</tt>, <tt>:uint32_t</tt>,
+# <tt>"unsigned long"</tt>, <tt>:size_t</tt>, <tt>:double</tt>. The sizes are those of x86-64 Linux: +char+ 8 bits
+# and signed, +short+ 16, +int+ 32, +long+ and <tt>long long</tt> 64. +cast+ takes any spelling, and +sizeof+
+# answers as C does.
+#
+#   hex(-1, :int)                 # => 0xFFFFFFFF
+#   dec(200, "signed char")       # => -56
+#   cast("unsigned long", -1)     # => 18446744073709551615
+#   sizeof(:int) - 5              # => 18446744073709551615
+#
+# == Arithmetic
+#
+# Typed values compute by C's rules: integer promotion, wrapping, truncating division, and a shift and a comparison
+# that follow the sign. IrbHelpers::Int lists them.
+#
+#   u32(0xFFFFFFFF) + 1   # => 0
+#   s32(-7) / 2           # => -3
+#   u8(250) + u8(10)      # => 260
+#   hex(u64(-1) >> 60)    # => 0xF
+#   s32(-1) < u32(1)      # => false
+#
+# Numbers that never met a helper or a type stay Ruby's own: <tt>-7 / 2</tt> is -4.
+#
+# == Other values
+#
+# A Float keeps its fraction, +true+ and +false+ are 1 and 0, and a one-character String is its code point.
+#
+#   hex(1.5)              # => 0x1.8
+#   hex("A")              # => 0x41
+#
+# A plain Integer wider than 64 bits is cut to its low 64 with a note on standard error, unless a type says
+# otherwise.
 module IrbHelpers
+  # :stopdoc:
   BASES = { bin: [2, '0b'], oct: [8, '0o'], dec: [10, ''], hex: [16, '0x'] }.freeze
   INTS = [8, 16, 32, 64].flat_map { |bits| [[:"u#{bits}", [bits, false]], [:"s#{bits}", [bits, true]]] }.to_h.freeze
-  FLOATS = { f32: 'f', f64: 'd' }.freeze
-  TYPES = [*INTS.keys, *FLOATS.keys, :big].freeze
+  FLOATS = %i[f32 f64].freeze
+  TYPES = [*INTS.keys, *FLOATS, :big].freeze
   NAMES = [*BASES.keys, *TYPES].freeze
   NONE = Object.new.freeze
+  # :startdoc:
 
+  ##
+  # :method: bin
+  # :call-seq:
+  #   bin(value, *options) -> number
+  #   bin                  -> :bin
+  #
+  # Shows +value+ in binary, with a <tt>0b</tt> prefix, and returns it converted as a C cast would.
+  #
+  #   bin(10)             # => 0b1010
+  #   bin(-1, u8)         # => 0b11111111
+  #   bin(0x1F0, s8)      # => 0b11110000
+  #   bin(0.75)           # => 0b0.11
+  #   bin(5, hex)         # => 0x5
+  #
+  # +value+ is an Integer, an IrbHelpers::Int, a Float, +true+, +false+ or a one-character String.
+  #
+  # +options+ come in any order and letter case, each as a bare name, a Symbol or a String:
+  #
+  # a type:: +u8+ +s8+ +u16+ +s16+ +u32+ +s32+ +u64+ +s64+ +f32+ +f64+ +big+, or a C name such as <tt>:int</tt>,
+  #          <tt>:uint32_t</tt> or <tt>"unsigned long"</tt>. Without one a plain Integer becomes a +u64+, and a
+  #          typed value or a Float stays what it is.
+  # a base:: +bin+ +oct+ +dec+ +hex+, to show the value in that base instead.
+  #
+  # An integer shows the two's complement pattern of its type; +big+ shows a sign instead. Called with nothing,
+  # it returns its name, which is how <tt>hex(5, bin)</tt> names a base.
+  #
+  # Raises ArgumentError for another kind of value, an unknown option or two different types or bases, and
+  # RangeError for a Float that is not finite.
+
+  ##
+  # :method: oct
+  # :call-seq:
+  #   oct(value, *options) -> number
+  #   oct                  -> :oct
+  #
+  # Shows +value+ in octal, with a <tt>0o</tt> prefix, and returns it converted as a C cast would.
+  #
+  #   oct(8)              # => 0o10
+  #   oct(0o755)          # => 0o755
+  #   oct(-1, u8)         # => 0o377
+  #   oct(0.5)            # => 0o0.4
+  #
+  # +value+ is an Integer, an IrbHelpers::Int, a Float, +true+, +false+ or a one-character String.
+  #
+  # +options+ come in any order and letter case, each as a bare name, a Symbol or a String:
+  #
+  # a type:: +u8+ +s8+ +u16+ +s16+ +u32+ +s32+ +u64+ +s64+ +f32+ +f64+ +big+, or a C name such as <tt>:int</tt>,
+  #          <tt>:uint32_t</tt> or <tt>"unsigned long"</tt>. Without one a plain Integer becomes a +u64+, and a
+  #          typed value or a Float stays what it is.
+  # a base:: +bin+ +oct+ +dec+ +hex+, to show the value in that base instead.
+  #
+  # An integer shows the two's complement pattern of its type; +big+ shows a sign instead. Called with nothing,
+  # it returns its name.
+  #
+  # Raises ArgumentError for another kind of value, an unknown option or two different types or bases, and
+  # RangeError for a Float that is not finite.
+
+  ##
+  # :method: dec
+  # :call-seq:
+  #   dec(value, *options) -> number
+  #   dec                  -> :dec
+  #
+  # Shows +value+ in decimal and returns it converted as a C cast would. The type decides how the bits read.
+  #
+  #   dec(0x10)           # => 16
+  #   dec(-8)             # => 18446744073709551608
+  #   dec(-8, s64)        # => -8
+  #   dec(0xFFFF, s16)    # => -1
+  #   dec(300, u8)        # => 44
+  #   dec(hex(255))       # => 255
+  #
+  # +value+ is an Integer, an IrbHelpers::Int, a Float, +true+, +false+ or a one-character String.
+  #
+  # +options+ come in any order and letter case, each as a bare name, a Symbol or a String:
+  #
+  # a type:: +u8+ +s8+ +u16+ +s16+ +u32+ +s32+ +u64+ +s64+ +f32+ +f64+ +big+, or a C name such as <tt>:int</tt>,
+  #          <tt>:uint32_t</tt> or <tt>"unsigned long"</tt>. Without one a plain Integer becomes a +u64+, and a
+  #          typed value or a Float stays what it is.
+  # a base:: +bin+ +oct+ +dec+ +hex+, to show the value in that base instead.
+  #
+  # Called with nothing, it returns its name.
+  #
+  # Raises ArgumentError for another kind of value, an unknown option or two different types or bases, and
+  # RangeError for a Float that is not finite.
+
+  ##
+  # :method: hex
+  # :call-seq:
+  #   hex(value, *options) -> number
+  #   hex                  -> :hex
+  #
+  # Shows +value+ in hexadecimal, with a <tt>0x</tt> prefix, and returns it converted as a C cast would.
+  #
+  #   hex(255)            # => 0xFF
+  #   hex(-1)             # => 0xFFFFFFFFFFFFFFFF
+  #   hex(-1, s16)        # => 0xFFFF
+  #   hex(s32(-1))        # => 0xFFFFFFFF
+  #   hex(-255, big)      # => -0xFF
+  #   hex(1.5)            # => 0x1.8
+  #   hex("A")            # => 0x41
+  #   hex(5, bin)         # => 0b101
+  #
+  # +value+ is an Integer, an IrbHelpers::Int, a Float, +true+, +false+ or a one-character String.
+  #
+  # +options+ come in any order and letter case, each as a bare name, a Symbol or a String:
+  #
+  # a type:: +u8+ +s8+ +u16+ +s16+ +u32+ +s32+ +u64+ +s64+ +f32+ +f64+ +big+, or a C name such as <tt>:int</tt>,
+  #          <tt>:uint32_t</tt> or <tt>"unsigned long"</tt>. Without one a plain Integer becomes a +u64+, and a
+  #          typed value or a Float stays what it is.
+  # a base:: +bin+ +oct+ +dec+ +hex+, to show the value in that base instead.
+  #
+  # An integer shows the two's complement pattern of its type; +big+ shows a sign instead. Called with nothing,
+  # it returns its name, which is how <tt>bin(5, hex)</tt> names a base.
+  #
+  # Raises ArgumentError for another kind of value, an unknown option or two different types or bases, and
+  # RangeError for a Float that is not finite.
+
+  BASES.each_key do |name|
+    define_method(name) do |value = NONE, *options|
+      NONE.equal?(value) ? name : IrbHelpers.show(name, value, options)
+    end
+  end
+
+  ##
+  # :method: u8
+  # :call-seq:
+  #   u8(value) -> IrbHelpers::Int
+  #   u8        -> :u8
+  #
+  # Converts +value+ as C's <tt>(uint8_t)value</tt> does: 8 bits, 0 to 255. A Float loses its fraction and
+  # what does not fit is cut. Called with nothing, it returns its name.
+  #
+  #   u8(300)             # => 44
+  #   u8(-1)              # => 255
+  #   u8(3.9)             # => 3
+  #   u8(250) + u8(10)    # => 260
+
+  ##
+  # :method: s8
+  # :call-seq:
+  #   s8(value) -> IrbHelpers::Int
+  #   s8        -> :s8
+  #
+  # Converts +value+ as C's <tt>(int8_t)value</tt> does: 8 bits, -128 to 127. A Float loses its fraction and
+  # what does not fit is cut. Called with nothing, it returns its name.
+  #
+  #   s8(200)             # => -56
+  #   s8(0xFF)            # => -1
+  #   s8(-128) - 1        # => -129
+  #   hex(s8(-1))         # => 0xFF
+
+  ##
+  # :method: u16
+  # :call-seq:
+  #   u16(value) -> IrbHelpers::Int
+  #   u16        -> :u16
+  #
+  # Converts +value+ as C's <tt>(uint16_t)value</tt> does: 16 bits, 0 to 65535. A Float loses its fraction and
+  # what does not fit is cut. Called with nothing, it returns its name.
+  #
+  #   u16(0x12345)        # => 9029
+  #   u16(-1)             # => 65535
+  #   hex(u16(0x12345))   # => 0x2345
+
+  ##
+  # :method: s16
+  # :call-seq:
+  #   s16(value) -> IrbHelpers::Int
+  #   s16        -> :s16
+  #
+  # Converts +value+ as C's <tt>(int16_t)value</tt> does: 16 bits, -32768 to 32767. A Float loses its fraction
+  # and what does not fit is cut. Called with nothing, it returns its name.
+  #
+  #   s16(0xFFFF)         # => -1
+  #   s16(0x8000)         # => -32768
+  #   s16(4096 * 4096)    # => 0
+
+  ##
+  # :method: u32
+  # :call-seq:
+  #   u32(value) -> IrbHelpers::Int
+  #   u32        -> :u32
+  #
+  # Converts +value+ as C's <tt>(uint32_t)value</tt> does: 32 bits, 0 to 4294967295, C's <tt>unsigned int</tt>.
+  # A Float loses its fraction and what does not fit is cut. Called with nothing, it returns its name.
+  #
+  #   u32(-1)             # => 4294967295
+  #   u32(0xFFFFFFFF) + 1 # => 0
+  #   u32(5) - 6          # => 4294967295
+  #   u32(1) << 31        # => 2147483648
+
+  ##
+  # :method: s32
+  # :call-seq:
+  #   s32(value) -> IrbHelpers::Int
+  #   s32        -> :s32
+  #
+  # Converts +value+ as C's <tt>(int32_t)value</tt> does: 32 bits, -2147483648 to 2147483647, C's +int+. A Float
+  # loses its fraction and what does not fit is cut. Called with nothing, it returns its name.
+  #
+  #   s32(0xFFFFFFFF)     # => -1
+  #   s32(0x7FFFFFFF) + 1 # => -2147483648
+  #   s32(-7) / 2         # => -3
+  #   s32(-7) % 2         # => -1
+
+  ##
+  # :method: u64
+  # :call-seq:
+  #   u64(value) -> IrbHelpers::Int
+  #   u64        -> :u64
+  #
+  # Converts +value+ as C's <tt>(uint64_t)value</tt> does: 64 bits, 0 to 18446744073709551615, C's
+  # <tt>unsigned long</tt>. A Float loses its fraction and what does not fit is cut. Called with nothing, it
+  # returns its name.
+  #
+  #   u64(-1)             # => 18446744073709551615
+  #   u64(-1) + 1         # => 0
+  #   hex(u64(-1) >> 60)  # => 0xF
+  #   hex(~u64(0xFFF))    # => 0xFFFFFFFFFFFFF000
+
+  ##
+  # :method: s64
+  # :call-seq:
+  #   s64(value) -> IrbHelpers::Int
+  #   s64        -> :s64
+  #
+  # Converts +value+ as C's <tt>(int64_t)value</tt> does: 64 bits, -9223372036854775808 to 9223372036854775807,
+  # C's +long+. A Float loses its fraction and what does not fit is cut. Called with nothing, it returns its
+  # name.
+  #
+  #   s64(0xFFFFFFFFFFFFFFFF) # => -1
+  #   s64(s32(-1))            # => -1
+  #   hex(s64(-1) >> 60)      # => 0xFFFFFFFFFFFFFFFF
+  #   s64(-7) / 2             # => -3
+
+  ##
+  # :method: f32
+  # :call-seq:
+  #   f32(value) -> Float
+  #   f32        -> :f32
+  #
+  # Converts +value+ as C's <tt>(float)value</tt> does: the nearest single-precision number, as a Float.
+  # Arithmetic on the result is Ruby's, in double precision. Called with nothing, it returns its name.
+  #
+  #   f32(0.1)            # => 0.10000000149011612
+  #   f32(16777217)       # => 16777216.0
+  #   hex(0.1, f32)       # => 0x0.199999A
+  #   f32(1e39)           # => Infinity
+
+  ##
+  # :method: f64
+  # :call-seq:
+  #   f64(value) -> Float
+  #   f64        -> :f64
+  #
+  # Converts +value+ as C's <tt>(double)value</tt> does: a Float. Called with nothing, it returns its name.
+  #
+  #   f64(1)              # => 1.0
+  #   f64(u64(-1))        # => 1.8446744073709552e+19
+  #   hex(255, f64)       # => 0xFF
+  #   hex(0.1, f64)       # => 0x0.1999999999999A
+
+  ##
+  # :method: big
+  # :call-seq:
+  #   big(value) -> Integer
+  #   big        -> :big
+  #
+  # Converts +value+ to a plain Integer with no width: nothing is cut, a Float loses its fraction, and arithmetic
+  # on the result is Ruby's. Called with nothing, it returns its name.
+  #
+  #   big(u8(255)) + 1    # => 256
+  #   big(3.9)            # => 3
+  #   hex(1 << 64, big)   # => 0x10000000000000000
+  #   hex(-255, big)      # => -0xFF
+
+  TYPES.each do |name|
+    define_method(name) do |value = NONE|
+      NONE.equal?(value) ? name : Convert.cast(name, Convert.number(name, value))
+    end
+  end
+
+  # Converts +value+ to +type+ as C's <tt>(type)value</tt> does. +type+ is any name a helper takes as an option:
+  # +u16+, <tt>:u16</tt>, <tt>:int</tt>, <tt>:uint32_t</tt>, <tt>"unsigned long"</tt>, <tt>:double</tt>, +big+.
+  #
+  #   cast(:int, 0xFFFFFFFF)        # => -1
+  #   cast("unsigned char", 300)    # => 44
+  #   cast(u16, 0x12345)            # => 9029
+  #   cast(:size_t, -1)             # => 18446744073709551615
+  #   cast(:float, 0.1)             # => 0.10000000149011612
+  #
+  # Raises ArgumentError for a name that is not a type.
+  def cast(type, value)
+    Convert.cast(Options.type('cast', type), Convert.number('cast', value))
+  end
+
+  # The size in bytes of a type or of a value's type, as C's +sizeof+: a +u64+, C's +size_t+, so arithmetic on
+  # it is unsigned. A plain Integer counts as the constant it would be in C, and a Float as a +double+.
+  #
+  #   sizeof(:int)                  # => 4
+  #   sizeof("unsigned long")       # => 8
+  #   sizeof(u8(1))                 # => 1
+  #   sizeof(u8(1) + u8(1))         # => 4
+  #   sizeof(1 << 40)               # => 8
+  #   sizeof(:int) - 5              # => 18446744073709551615
+  #
+  # Raises ArgumentError for +big+, which has no size, and for anything that is neither a type nor a number.
+  def sizeof(operand)
+    Int.new(:u64, Convert.sizeof(operand))
+  end
+
+  ##
+  # A fixed-width integer that computes as C does on x86-64 Linux (GCC, LP64). +u8+ to +s64+ return one, and so
+  # do +bin+, +oct+, +dec+ and +hex+ for an integer.
+  #
+  #   x = u32(0xFFFFFFFF)   # => 4294967295
+  #   x + 1                 # => 0
+  #   s32(-7) / 2           # => -3
+  #   s32(-7) % 2           # => -1
+  #   u8(250) + u8(10)      # => 260
+  #   s32(-1) < u32(1)      # => false
+  #   hex(s64(-1) >> 60)    # => 0xFFFFFFFFFFFFFFFF
+  #   hex(u64(-1) >> 60)    # => 0xF
+  #
+  # == Rules
+  #
+  # Promotion:: an operand narrower than +s32+, C's +int+, becomes an +s32+ first.
+  # Common type:: of two operands the wider type wins, and of two equally wide ones the unsigned.
+  # Plain numbers:: an Integer beside a typed value is typed as a decimal C constant: +s32+ when it fits, else
+  #                 +s64+, else +u64+. A Float makes the result a Float.
+  # Overflow:: the result is cut to its type. A signed result wraps too, as GCC's <tt>-fwrapv</tt> defines.
+  # Division:: <tt>/</tt> truncates toward zero and <tt>%</tt> takes the sign of the dividend.
+  # Shift:: the result has the left operand's promoted type. <tt>>></tt> shifts in zeros for an unsigned type and
+  #         copies of the sign bit for a signed one.
+  # Comparison:: both sides are converted to the common type first, so a negative number beside an unsigned one
+  #              compares as a large number.
+  #
+  # Where C leaves the result undefined, the x86-64 instruction decides: a shift uses the low 5 or 6 bits of its
+  # count, with a note on standard error, and a division by zero raises ZeroDivisionError.
+  #
+  # Any other Integer method acts on the plain number and returns a plain result. Ruby takes every object for
+  # true, so <tt>!u8(0)</tt> is false: ask <tt>zero?</tt>.
+  class Int
+    extend Forwardable
+    include Comparable
+
+    # The type's name: <tt>:u8</tt>, <tt>:s32</tt> and so on.
+    attr_reader :type
+
+    # The value as a plain Integer: negative for a signed type whose sign bit is set.
+    attr_reader :to_i
+
+    alias to_int to_i
+
+    def_delegators :to_i, :to_f, :to_s, :inspect
+
+    # Cuts +number+ to +type+, as a C conversion does.
+    def initialize(type, number)
+      @type = type
+      @to_i = Rules.wrap(type, number)
+      freeze
+    end
+
+    ##
+    # :method: +
+    # :call-seq: self + other -> IrbHelpers::Int or Float
+    #
+    # Adds in the common type and cuts the result to it.
+
+    ##
+    # :method: -
+    # :call-seq: self - other -> IrbHelpers::Int or Float
+    #
+    # Subtracts in the common type and cuts the result to it: <tt>u32(5) - 6</tt> is 4294967295.
+
+    ##
+    # :method: *
+    # :call-seq: self * other -> IrbHelpers::Int or Float
+    #
+    # Multiplies in the common type and cuts the result to it.
+
+    ##
+    # :method: &
+    # :call-seq: self & other -> IrbHelpers::Int
+    #
+    # Bitwise AND in the common type.
+
+    ##
+    # :method: |
+    # :call-seq: self | other -> IrbHelpers::Int
+    #
+    # Bitwise OR in the common type.
+
+    ##
+    # :method: ^
+    # :call-seq: self ^ other -> IrbHelpers::Int
+    #
+    # Bitwise exclusive OR in the common type.
+
+    %i[+ - * & | ^].each do |operator|
+      define_method(operator) { |other| binary(other) { |left, right| left.public_send(operator, right) } }
+    end
+
+    # Divides in the common type, truncating toward zero: <tt>s32(-7) / 2</tt> is -3. A zero divisor raises
+    # ZeroDivisionError.
+    def /(other)
+      binary(other) { |left, right| left.is_a?(Float) ? left / right : (left - left.remainder(right)) / right }
+    end
+
+    # The remainder of that division, with the sign of the dividend: <tt>s32(-7) % 2</tt> is -1.
+    def %(other)
+      binary(other) { |left, right| left.remainder(right) }
+    end
+
+    # Shifts left in the promoted type of +self+ and cuts the result to it.
+    def <<(other)
+      shift(other) { |number, count| number << count }
+    end
+
+    # Shifts right in the promoted type of +self+: zeros come in for an unsigned type, copies of the sign bit for
+    # a signed one.
+    def >>(other)
+      shift(other) { |number, count| number >> count }
+    end
+
+    # Negates in the promoted type: <tt>-u32(1)</tt> is 4294967295.
+    def -@
+      Int.new(Rules.promote(type), -to_i)
+    end
+
+    # Promotes: <tt>+u8(5)</tt> is an +s32+.
+    def +@
+      Int.new(Rules.promote(type), to_i)
+    end
+
+    # Inverts every bit of the promoted type: <tt>~u64(0)</tt> is 18446744073709551615.
+    def ~
+      Int.new(Rules.promote(type), ~to_i)
+    end
+
+    # Compares in the common type, which is what <tt><</tt>, <tt>==</tt> and the rest use:
+    # <tt>s32(-1) < u32(1)</tt> is false.
+    def <=>(other)
+      return to_f <=> other if other.is_a?(Float)
+
+      left, right, = operands(other)
+      left <=> right
+    rescue TypeError, RangeError
+      nil
+    end
+
+    # The same bits read as an unsigned number: <tt>s8(-1).pattern</tt> is 255.
+    def pattern
+      to_i & ((1 << (size * 8)) - 1)
+    end
+
+    # The width in bytes, C's +sizeof+.
+    def size
+      INTS.fetch(type).first / 8
+    end
+
+    def coerce(other) # :nodoc:
+      case other
+      when Integer then [Rules.literal(other), self]
+      when Float then [other, to_f]
+      else raise TypeError, "#{other.class} can't be coerced into #{self.class}"
+      end
+    end
+
+    def eql?(other) # :nodoc:
+      other.is_a?(Int) && type == other.type && to_i == other.to_i
+    end
+
+    def hash # :nodoc:
+      [type, to_i].hash
+    end
+
+    def respond_to_missing?(name, include_private = false) # :nodoc:
+      to_i.respond_to?(name, include_private) || super
+    end
+
+    def method_missing(name, *arguments, **options, &block) # :nodoc:
+      return super unless to_i.respond_to?(name)
+
+      to_i.public_send(name, *arguments.map { |argument| Rules.plain(argument) }, **options, &block)
+    end
+
+    private
+
+    def operands(other)
+      other = Rules.literal(other) if other.is_a?(Integer)
+      raise TypeError, "#{other.class} can't be coerced into #{self.class}" unless other.is_a?(Int)
+
+      type = Rules.common(self.type, other.type)
+      [Rules.wrap(type, to_i), Rules.wrap(type, other.to_i), type]
+    end
+
+    def binary(other)
+      return yield(to_f, other) if other.is_a?(Float)
+
+      left, right, type = operands(other)
+      Int.new(type, yield(left, right))
+    end
+
+    def shift(other)
+      type = Rules.promote(self.type)
+      bits = INTS.fetch(type).first
+      count = Rules.count(other)
+      IrbHelpers.undefined_shift(type, count, bits) unless count.between?(0, bits - 1)
+      Int.new(type, yield(Rules.wrap(type, to_i), count & (bits - 1)))
+    end
+  end
+
+  module Rules # :nodoc:
+    LITERALS = %i[s32 s64 u64].freeze
+    WIDE = %i[u32 s64 u64].freeze
+
+    def self.wrap(type, number)
+      bits, signed = INTS.fetch(type)
+      number &= (1 << bits) - 1
+      signed && number[bits - 1] == 1 ? number - (1 << bits) : number
+    end
+
+    def self.promote(type)
+      INTS.fetch(type).first < 32 ? :s32 : type
+    end
+
+    def self.common(left, right)
+      [promote(left), promote(right)].max_by do |type|
+        bits, signed = INTS.fetch(type)
+        [bits, signed ? 0 : 1]
+      end
+    end
+
+    def self.literal(number)
+      type = LITERALS.find { |name| wrap(name, number.abs) == number.abs }
+      return Int.new(type, number) if type
+
+      raise RangeError, "#{number} is wider than 64 bits, so it has no C type; convert it with u64 or another type"
+    end
+
+    def self.plain(value)
+      case value
+      when Int then value.to_i
+      else value
+      end
+    end
+
+    def self.whole(type, number)
+      return number.to_i unless number.is_a?(Float)
+      return register(number - (2**63), 64) ^ (1 << 63) if type == :u64 && number >= 2**63
+
+      register(number, WIDE.include?(type) ? 64 : 32)
+    end
+
+    def self.register(number, bits)
+      whole = number.truncate
+      whole.bit_length < bits ? whole : -(1 << (bits - 1))
+    end
+
+    def self.single(number)
+      size = number.abs
+      return [number.to_f].pack('f').unpack1('f') unless number.is_a?(Integer) && size.bit_length > 53
+
+      nearest(size, size.bit_length - 24).to_f * (number <=> 0)
+    end
+
+    def self.nearest(size, shift)
+      quotient, rest = size.divmod(1 << shift)
+      quotient += 1 if (rest << 1) + (quotient & 1) > (1 << shift)
+      quotient << shift
+    end
+
+    def self.count(value)
+      case value
+      when Int, Integer then value.to_i
+      else raise TypeError, "a shift count is an integer, got #{Convert.describe(value)}"
+      end
+    end
+  end
+
+  module Options # :nodoc:
+    WORDS = { 'signed' => 1, 'unsigned' => 1, 'char' => 1, 'short' => 1, 'int' => 1, 'long' => 2 }.freeze
+    APART = [%w[signed unsigned], %w[char short long], %w[char int]].freeze
+    SIZES = { 'char' => 8, 'short' => 16, 'long' => 64 }.freeze
+    KNOWN = NAMES.to_h { |name| [name.to_s, name] }.merge(
+      INTS.to_h { |name, (bits, signed)| ["#{'u' unless signed}int#{bits}_t", name] },
+      { 'size_t' => :u64, 'ssize_t' => :s64, 'intptr_t' => :s64, 'uintptr_t' => :u64, 'ptrdiff_t' => :s64,
+        'intmax_t' => :s64, 'uintmax_t' => :u64, 'uint' => :u32, 'ulong' => :u64, 'ushort' => :u16,
+        'float' => :f32, 'double' => :f64 }
+    ).freeze
+
+    def self.pick(name, options)
+      base = type = nil
+      options.each do |option|
+        key = named(name, option)
+        if BASES.key?(key)
+          base = one(name, 'base', base, key)
+        else
+          type = one(name, 'type', type, key)
+        end
+      end
+      [base || name, type]
+    end
+
+    def self.named(name, option)
+      resolve(option) || raise(ArgumentError, "#{name} expects options among #{NAMES.join(', ')} " \
+                                              "or a C type name, got #{Convert.describe(option)}")
+    end
+
+    def self.type(name, option)
+      key = resolve(option)
+      return key if TYPES.include?(key)
+
+      raise ArgumentError, "#{name} expects a type among #{TYPES.join(', ')} or a C type name, " \
+                           "got #{Convert.describe(option)}"
+    end
+
+    def self.resolve(option)
+      case option
+      when Symbol, String
+        text = option.to_s.scrub.downcase.split.join(' ')
+        KNOWN[text] || specifiers(text.split.tally)
+      end
+    end
+
+    def self.specifiers(counts)
+      return unless declares?(counts)
+
+      bits = counts.keys.filter_map { |word| SIZES[word] }.first || 32
+      :"#{counts.key?('unsigned') ? 'u' : 's'}#{bits}"
+    end
+
+    def self.declares?(counts)
+      counts.any? && counts.all? { |word, count| count <= WORDS.fetch(word, 0) } &&
+        APART.none? { |group| (group & counts.keys).size > 1 }
+    end
+
+    def self.one(name, kind, old, new)
+      raise ArgumentError, "#{name} takes one #{kind}, got #{old} and #{new}" if old && old != new
+
+      new
+    end
+  end
+
+  module Convert # :nodoc:
+    EXPECTS = 'expects an integer, float, boolean, or single character'
+
+    def self.number?(value)
+      case value
+      when Int, Integer, Float then true
+      else false
+      end
+    end
+
+    def self.number(name, value)
+      case value
+      when Int, Integer then value
+      when Float then finite(name, value)
+      when true, false then value ? 1 : 0
+      when String then code_point(name, value)
+      else raise ArgumentError, "#{name} #{EXPECTS}, got #{describe(value)}"
+      end
+    end
+
+    def self.finite(name, value)
+      raise RangeError, "#{name} expects a finite number, got #{value}" unless value.finite?
+
+      value
+    end
+
+    def self.code_point(name, value)
+      unless value.valid_encoding?
+        raise ArgumentError, "#{name} expects a validly encoded character, got #{describe(value)}"
+      end
+      return value.ord if value.length == 1
+
+      raise ArgumentError, "#{name} expects a single character, got #{describe(value)} (#{value.length} code points)"
+    end
+
+    def self.describe(value)
+      text = value.inspect
+      text.length > 80 ? "#{text[0, 77]}..." : text
+    rescue StandardError
+      'an object that cannot be inspected'
+    end
+
+    def self.cast(type, number)
+      number = Rules.plain(number)
+      if INTS.key?(type)
+        Int.new(type, Rules.whole(type, number))
+      elsif FLOATS.include?(type)
+        type == :f32 ? Rules.single(number) : number.to_f
+      else
+        number.to_i
+      end
+    end
+
+    def self.sizeof(operand)
+      case operand
+      when Int then operand.size
+      when Integer then Rules.literal(operand).size
+      when Float then 8
+      else width(Options.type('sizeof', operand))
+      end
+    end
+
+    def self.width(type)
+      raise ArgumentError, 'sizeof expects a type with a size, got big' if type == :big
+
+      INTS.key?(type) ? INTS[type].first / 8 : FLOATS.index(type) * 4 + 4
+    end
+
+    def self.default(name, number)
+      return number unless number.is_a?(Integer)
+
+      IrbHelpers.wide(name) unless number.bit_length <= (number.negative? ? 63 : 64)
+      Int.new(:u64, number)
+    end
+
+    def self.shown(name, value, type)
+      return value if value.is_a?(Int)
+
+      type ? cast(type, value) : default(name, value)
+    end
+  end
+
+  module Text # :nodoc:
+    def self.render(value, base)
+      radix, prefix = BASES.fetch(base)
+      case value
+      when Float then real(value, radix, prefix)
+      when Int then whole(radix == 10 ? value.to_i : value.pattern, radix, prefix)
+      else whole(value, radix, prefix)
+      end
+    end
+
+    def self.whole(number, radix, prefix)
+      "#{'-' if number.negative?}#{prefix}#{number.abs.to_s(radix).upcase}"
+    end
+
+    def self.real(number, radix, prefix)
+      return number.to_s if radix == 10 || !number.finite?
+
+      whole, rest = number.abs.divmod(1)
+      "#{'-' if (1 / number).negative?}#{whole(whole, radix, prefix)}#{fraction(rest, radix)}"
+    end
+
+    def self.fraction(rest, radix)
+      digits = +''
+      until rest.zero?
+        digit, rest = (rest * radix).divmod(1)
+        digits << digit.to_s(radix).upcase
+      end
+      digits.empty? ? digits : ".#{digits}"
+    end
+  end
+
+  # :stopdoc:
   class << self
     attr_accessor :shown, :hooked
   end
 
-  BASES.each_key do |name|
-    define_method(name) do |value = NONE, *options|
-      next name if NONE.equal?(value)
-
-      number = IrbHelpers.number(name, value)
-      IrbHelpers.show(name, number, options)
-      number
-    end
-  end
-
-  TYPES.each do |name|
-    define_method(name) do |value = NONE|
-      NONE.equal?(value) ? name : IrbHelpers.cast(name, IrbHelpers.number(name, value))
-    end
-  end
-
-  def self.show(name, number, options)
-    base, type = pick(name, options)
+  def self.show(name, value, options)
+    number = Convert.number(name, value)
+    base, type = Options.pick(name, options)
+    number = type ? Convert.cast(type, number) : Convert.default(name, number)
     self.shown = [name, base, type]
-    puts render(name, number, base, type) unless hooked
-  end
-
-  def self.pick(name, options)
-    base = type = nil
-    options.each do |option|
-      key = named(option)
-      if BASES.key?(key)
-        base = one(name, 'base', base, key)
-      elsif TYPES.include?(key)
-        type = one(name, 'type', type, key)
-      else
-        raise ArgumentError, "#{name} expects options among #{NAMES.join(', ')}, got #{describe(option)}"
-      end
-    end
-    [base || name, type]
-  end
-
-  def self.named(option)
-    option.to_s.downcase.to_sym if Symbol === option || (String === option && option.valid_encoding?)
-  end
-
-  def self.one(name, kind, old, new)
-    raise ArgumentError, "#{name} takes one #{kind}, got #{old} and #{new}" if old && old != new
-
-    new
-  end
-
-  def self.describe(value)
-    text = value.inspect
-    text.length > 80 ? "#{text[0, 77]}..." : text
-  rescue StandardError
-    'an object that cannot be inspected'
-  end
-
-  def self.number(name, value)
-    case value
-    when Integer then value
-    when Float then finite(name, value)
-    when true, false then value ? 1 : 0
-    when String then code_point(name, value)
-    else
-      raise ArgumentError, "#{name} expects an integer, float, boolean, or single character, got #{describe(value)}"
-    end
-  end
-
-  def self.finite(name, value)
-    raise RangeError, "#{name} expects a finite number, got #{value}" unless value.finite?
-
-    value
-  end
-
-  def self.code_point(name, value)
-    unless value.valid_encoding?
-      raise ArgumentError, "#{name} expects a validly encoded character, got #{describe(value)}"
-    end
-    return value.ord if value.length == 1
-
-    raise ArgumentError, "#{name} expects a single character, got #{describe(value)} (#{value.length} code points)"
-  end
-
-  def self.cast(type, number)
-    if INTS.key?(type)
-      wrap(number.to_i, *INTS[type])
-    elsif FLOATS.key?(type)
-      [number].pack(FLOATS[type]).unpack1(FLOATS[type])
-    else
-      number.to_i
-    end
-  end
-
-  def self.wrap(number, bits, signed)
-    number &= (1 << bits) - 1
-    signed && number[bits - 1] == 1 ? number - (1 << bits) : number
-  end
-
-  def self.real?(value, type)
-    type ? FLOATS.key?(type) : value.is_a?(Float)
-  end
-
-  def self.render(name, value, base, type)
-    radix, prefix = BASES[base]
-    value = cast(type, value) if type
-    return real(value, radix, prefix) if value.is_a?(Float)
-    return whole(value, radix, prefix) if type == :big
-
-    bits, signed = INTS[type || :u64]
-    wide(name) unless type || value.bit_length <= (value.negative? ? 63 : 64)
-    value = wrap(value, bits, signed)
-    radix == 10 ? value.to_s : whole(value & ((1 << bits) - 1), radix, prefix)
-  end
-
-  def self.wide(name)
-    warn "#{name}: the value is wider than 64 bits and only the low 64 are shown; pass :big to see all of it"
-  end
-
-  def self.whole(number, radix, prefix)
-    "#{'-' if number.negative?}#{prefix}#{number.abs.to_s(radix).upcase}"
-  end
-
-  def self.real(number, radix, prefix)
-    return number.to_s if radix == 10 || !number.finite?
-
-    whole, fraction = number.abs.divmod(1)
-    text = +"#{'-' if (1 / number).negative?}#{whole(whole, radix, prefix)}"
-    text << '.' unless fraction.zero?
-    until fraction.zero?
-      digit, fraction = (fraction * radix).divmod(1)
-      text << digit.to_s(radix).upcase
-    end
-    text
+    puts Text.render(number, base) unless hooked
+    number
   end
 
   def self.result(value)
     name, base, type = shown
-    return unless name && (value.is_a?(Integer) || value.is_a?(Float))
+    return unless name && Convert.number?(value)
 
-    text = render(name, value, base, type)
-    defined?(IRB::Color) ? IRB::Color.colorize(text, [real?(value, type) ? :MAGENTA : :BLUE, :BOLD]) : text
+    value = Convert.shown(name, value, type)
+    text = Text.render(value, base)
+    return text unless defined?(IRB::Color)
+
+    IRB::Color.colorize(text, [value.is_a?(Float) ? :MAGENTA : :BLUE, :BOLD])
   rescue StandardError
     nil
   end
-end
 
-TOPLEVEL_BINDING.receiver.extend(IrbHelpers)
+  def self.wide(name)
+    warn "#{name}: the value is wider than 64 bits and was cut to the low 64; pass :big to keep all of it"
+  end
 
-if %i[evaluate inspect_last_value].all? { |hook| IRB::Context.method_defined?(hook) }
-  IRB::Context.prepend(Module.new do
+  def self.undefined_shift(type, count, bits)
+    warn "#{type}: a shift by #{count} is undefined in C; x86-64 uses the low #{bits == 64 ? 6 : 5} bits of the count"
+  end
+
+  module Hooks # :nodoc:
     def evaluate(...)
       IrbHelpers.shown = nil
       super
@@ -177,7 +889,13 @@ if %i[evaluate inspect_last_value].all? { |hook| IRB::Context.method_defined?(ho
         super
       end
     end
-  end)
+  end
+end
+
+TOPLEVEL_BINDING.receiver.extend(IrbHelpers)
+
+if IrbHelpers::Hooks.instance_methods.all? { |hook| IRB::Context.method_defined?(hook) }
+  IRB::Context.prepend(IrbHelpers::Hooks)
   IrbHelpers.hooked = true
 end
 
