@@ -669,7 +669,7 @@
             who
             (string-join (map symbol->string
                               (append (if (memq 'base allowed) '(bin oct dec hex) '())
-                                      (if (memq 'unit allowed) UNITS '())
+                                      (if (memq 'base allowed) '() UNITS)
                                       TYPES))
                          ", ")
             (cdr argument)))
@@ -690,10 +690,13 @@
 (define (base-helper who arguments scope)
   (when (null? arguments) (fail "~a expects a value" who))
   (define value (value-of who (car arguments) scope))
-  (define chosen (options who (cdr arguments) '(base type)))
+  (define chosen (options who (cdr arguments) '(base type unit)))
   (define type (hash-ref chosen 'type #f))
+  (define unit (hash-ref chosen 'unit #f))
   (set! shown (list who (hash-ref chosen 'base (string->symbol who)) type))
-  (if type (cast type value) (default who value)))
+  (cond [unit (scale who value (* 10 (index-of UNITS unit)) type)]
+        [type (cast type value)]
+        [else (default who value)]))
 
 ;; Multiplies or divides by 1024 per step. A typed integer keeps C's arithmetic; without a type among the
 ;; options, a division with a remainder gives a double.
@@ -777,7 +780,7 @@ cnum computes as C does on x86-64 Linux (GCC, LP64).
   0x1000 * 4          a constant has no type until it meets one; with none, a helper takes it as a u64
   1u  1L  1ull  1.5f  suffixes type a constant as in C
   (u32)x  u32(x)      casts, also (unsigned long)x, (int8_t)x, cast(u16, x)
-  hex(x)  bin oct dec show a value in a base; hex(x, u16) converts first; hex(x, bin) changes the base
+  hex(x)  bin oct dec show a value in a base; hex(x, u16) converts first; hex(4, gb) reads 4 GB as bytes
   gb(x)   byte kb mb tb   convert a size from bytes; gb(512, mb) names the unit; mb_to_gb(512)
   sizeof(int)  sizeof x
   x = 5; x += 1; x++  variables
@@ -845,9 +848,10 @@ TEXT
   (define remember (and readline (dynamic-require 'readline/readline 'add-history)))
   (let loop ()
     (define line
-      (cond [readline (readline "cnum> ")]
-            [else (when interactive? (display "cnum> ") (flush-output))
-                  (read-line)]))
+      (with-handlers ([exn:break? (lambda (_) (newline) "")])
+        (cond [readline (readline "cnum> ")]
+              [else (when interactive? (display "cnum> ") (flush-output))
+                    (read-line)])))
     (cond [(eof-object? line) (when interactive? (newline))]
           [else
            (when (and remember (not (string=? (string-trim line) ""))) (remember line))

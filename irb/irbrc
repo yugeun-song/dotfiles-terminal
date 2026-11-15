@@ -79,7 +79,7 @@ require 'forwardable'
 #   gb(0x40000000)        # => 1
 #   gb(512, mb)           # => 0.5
 #   byte(4, gb)           # => 4294967296
-#   hex(byte(2, mb))      # => 0x200000
+#   hex(4, gb)            # => 0x100000000
 #   mb_to_kb(3)           # => 3072
 #   gb(0x1000)            # => 0.000003814697265625
 #
@@ -118,6 +118,7 @@ module IrbHelpers
   #          <tt>:uint32_t</tt> or <tt>"unsigned long"</tt>. Without one a plain Integer becomes a +u64+, and a
   #          typed value or a Float stays what it is.
   # a base:: +bin+ +oct+ +dec+ +hex+, to show the value in that base instead.
+  # a unit:: +kb+ +mb+ +gb+ +tb+, the unit +value+ is in; it is converted to bytes: <tt>hex(4, gb)</tt>.
   #
   # An integer shows the two's complement pattern of its type; +big+ shows a sign instead. Called with nothing,
   # it returns its name, which is how <tt>hex(5, bin)</tt> names a base.
@@ -146,6 +147,7 @@ module IrbHelpers
   #          <tt>:uint32_t</tt> or <tt>"unsigned long"</tt>. Without one a plain Integer becomes a +u64+, and a
   #          typed value or a Float stays what it is.
   # a base:: +bin+ +oct+ +dec+ +hex+, to show the value in that base instead.
+  # a unit:: +kb+ +mb+ +gb+ +tb+, the unit +value+ is in; it is converted to bytes: <tt>hex(4, gb)</tt>.
   #
   # An integer shows the two's complement pattern of its type; +big+ shows a sign instead. Called with nothing,
   # it returns its name.
@@ -176,6 +178,7 @@ module IrbHelpers
   #          <tt>:uint32_t</tt> or <tt>"unsigned long"</tt>. Without one a plain Integer becomes a +u64+, and a
   #          typed value or a Float stays what it is.
   # a base:: +bin+ +oct+ +dec+ +hex+, to show the value in that base instead.
+  # a unit:: +kb+ +mb+ +gb+ +tb+, the unit +value+ is in; it is converted to bytes: <tt>hex(4, gb)</tt>.
   #
   # Called with nothing, it returns its name.
   #
@@ -207,6 +210,7 @@ module IrbHelpers
   #          <tt>:uint32_t</tt> or <tt>"unsigned long"</tt>. Without one a plain Integer becomes a +u64+, and a
   #          typed value or a Float stays what it is.
   # a base:: +bin+ +oct+ +dec+ +hex+, to show the value in that base instead.
+  # a unit:: +kb+ +mb+ +gb+ +tb+, the unit +value+ is in; it is converted to bytes: <tt>hex(4, gb)</tt>.
   #
   # An integer shows the two's complement pattern of its type; +big+ shows a sign instead. Called with nothing,
   # it returns its name, which is how <tt>bin(5, hex)</tt> names a base.
@@ -390,7 +394,7 @@ module IrbHelpers
   #
   #   byte(4, gb)           # => 4294967296
   #   byte(1.5, kb)         # => 1536
-  #   hex(byte(2, mb))      # => 0x200000
+  #   hex(4, gb)            # => 0x100000000
   #   byte(u32(4), gb)      # => 0
   #
   # +options+ come in any order and letter case, each as a bare name, a Symbol or a String:
@@ -1229,6 +1233,13 @@ module IrbHelpers
                            "got #{Convert.describe(option)}"
     end
 
+    def self.measured(name, number, units, type)
+      unit = units.reduce(nil) { |old, option| Options.one(name, 'unit', old, spelled(option)) }
+      return scale(name, number, 10 * UNITS.index(unit), type) if unit
+
+      type ? Convert.cast(type, number) : Convert.default(name, number)
+    end
+
     def self.scale(name, number, shift, type)
       number = type ? Convert.cast(type, number) : Convert.default(name, number)
       case number
@@ -1311,8 +1322,9 @@ module IrbHelpers
 
   def self.show(name, value, options)
     number = Convert.number(name, value)
+    units, options = options.partition { |option| Size.spelled(option) }
     base, type = Options.pick(name, options)
-    number = type ? Convert.cast(type, number) : Convert.default(name, number)
+    number = Size.measured(name, number, units, type)
     self.shown = [name, base, type]
     puts Text.render(number, base) unless hooked
     number

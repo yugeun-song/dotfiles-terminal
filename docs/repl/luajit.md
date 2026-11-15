@@ -655,6 +655,19 @@ A conversion returns its number, and the result line follows the helper called l
 | `=bin(kb(4096))` | `0b100` |
 | `=dec(gb(1, tb))` | `1024` |
 
+### A unit in a base helper
+
+`bin`, `oct`, `dec` and `hex` take a unit too: it says what the value is in, and the value is converted to bytes.
+
+| Input | Result |
+|---|---|
+| `=hex(4, gb)` | `0x100000000` |
+| `=hex(1, mb)` | `0x100000` |
+| `=bin(1, kb)` | `0b10000000000` |
+| `=hex(1.5, kb)` | `0x600` |
+| `=hex(4, gb, u32)` | `0x0` |
+| `=hex(1, mb, bin)` | `0b100000000000000000000` |
+
 ### With a type
 
 A type among the options converts the value first, as a C cast does, and the constant is then multiplied or divided as C would: the division truncates and the product is cut. Without one a whole number is a `u64`, and a typed value keeps its type unless the division leaves a remainder.
@@ -686,11 +699,11 @@ A type among the options converts the value first, as a C cast does, and the con
 |---|---|
 | `=gb(1, mb, kb)` | `gb takes one unit, got mb and kb` |
 | `=mb_to_gb(1, kb)` | `mb_to_gb takes one unit, got mb and kb` |
+| `=hex(1, mb, kb)` | `hex takes one unit, got mb and kb` |
 | `=gb(1, hex)` | `gb expects options among byte, kb, mb, gb, tb, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64 or a C type name, got function` |
 | `=gb(1, u16, s8)` | `gb takes one type, got u16 and s8` |
 | `=gb(nil)` | `gb expects a number, 64-bit integer, boolean, or single character, got nil` |
 | `=gb("AB")` | `gb expects a single character, got "AB" (2 code points)` |
-| `=hex(1, mb)` | `hex expects options among bin, oct, dec, hex, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64 or a C type name, got function` |
 | `=gb(1, "furlong")` | `gb expects options among byte, kb, mb, gb, tb, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64 or a C type name, got "furlong"` |
 
 ## A helper without a value

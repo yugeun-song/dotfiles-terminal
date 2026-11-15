@@ -865,30 +865,6 @@ local function define(name, body)
   end
 end
 
-for name in pairs(BASES) do
-  define(name, function(value, ...)
-    local input = number(name, value)
-    local base, kind = pick(name, ...)
-    local output = convert(name, input, kind)
-    shown = { name = name, base = base, type = kind }
-    if not hooked then
-      raw(render(output, base))
-    end
-    return output
-  end)
-end
-
-for _, name in ipairs(NAMES) do
-  if not BASES[name] then
-    define(name, function(...)
-      if select("#", ...) ~= 1 then
-        fail("%s takes one value, got %d", name, select("#", ...))
-      end
-      return cast(name, name, number(name, (...)))
-    end)
-  end
-end
-
 ---The unit an option names: a size helper or a spelling such as `MiB` or `megabytes`.
 ---@param option any
 ---@return string?
@@ -944,6 +920,50 @@ local function scale(name, value, shift, kind)
     return value / factor
   end
   return double(value) / factor
+end
+
+for name in pairs(BASES) do
+  define(name, function(value, ...)
+    local input = number(name, value)
+    local from, rest, total = nil, {}, 0
+    for index = 1, select("#", ...) do
+      local option = select(index, ...)
+      local key = unit(option)
+      if key then
+        from = one(name, "unit", from, key)
+      else
+        total = total + 1
+        rest[total] = option
+      end
+    end
+    local base, kind = pick(name, unpack(rest, 1, total))
+    local output
+    if from then
+      for index, other in ipairs(UNITS) do
+        from = other == from and index or from
+      end
+      output = scale(name, input, 10 * (from - 1), kind)
+      kind = FLOATS[kind] and kind or nil
+    else
+      output = convert(name, input, kind)
+    end
+    shown = { name = name, base = base, type = kind }
+    if not hooked then
+      raw(render(output, base))
+    end
+    return output
+  end)
+end
+
+for _, name in ipairs(NAMES) do
+  if not BASES[name] then
+    define(name, function(...)
+      if select("#", ...) ~= 1 then
+        fail("%s takes one value, got %d", name, select("#", ...))
+      end
+      return cast(name, name, number(name, (...)))
+    end)
+  end
 end
 
 ---Runs a size helper: converts `value` from the unit among the options to `target` and remembers how to show it.

@@ -244,6 +244,19 @@ A float keeps its fraction, in any base. `f32` arithmetic is single precision un
 | `kb(s32(-4096))` | `-4` |
 | `kb(s32(-4097))` | `-4.00097` |
 
+## A unit in a base helper
+
+`bin`, `oct`, `dec` and `hex` take a unit too: it says what the value is in, and the value is converted to bytes.
+
+| Input | Result |
+|---|---|
+| `hex(4, gb)` | `0x100000000` |
+| `hex(1, mb)` | `0x100000` |
+| `bin(1, kb)` | `0b10000000000` |
+| `hex(1.5, kb)` | `0x600` |
+| `hex(4, gb, u32)` | `0x0` |
+| `hex(1, mb, bin)` | `0b100000000000000000000` |
+
 ## The s-expression behind a line
 
 `:ast` shows what a line is read as. The reader produces this tree and the rules in `cnum/cnum.rkt` evaluate it.
@@ -278,13 +291,13 @@ An error is one line on standard error, and the next line starts clean.
 | `foo(1)` | `error: foo is not defined` |
 | `hex` | `error: hex is not a value here; call it or pass it as an option` |
 | `hex()` | `error: hex expects a value` |
-| `hex(1, mb)` | `error: hex expects options among bin, oct, dec, hex, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got mb` |
 | `hex(1, 2)` | `error: hex expects options among bin, oct, dec, hex, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got 2` |
 | `hex(1, u8, u16)` | `error: hex takes one type, got u8 and u16` |
 | `hex(1, bin, oct)` | `error: hex takes one base, got bin and oct` |
 | `hex(int)` | `error: hex expects a number, got the type int` |
 | `gb(1, mb, kb)` | `error: gb takes one unit, got mb and kb` |
 | `mb_to_gb(1, kb)` | `error: mb_to_gb takes one unit, got mb and kb` |
+| `hex(1, mb, kb)` | `error: hex takes one unit, got mb and kb` |
 | `gb(1, hex)` | `error: gb expects options among byte, kb, mb, gb, tb, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got hex` |
 | `(long double)1` | `error: long double is not a type` |
 | `(unsigned float)1` | `error: unsigned float is not a type` |

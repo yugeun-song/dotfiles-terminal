@@ -44,6 +44,7 @@ fails the checks.
 | `gb(512, mb)` | 512 megabytes, in gigabytes |
 | `byte(4, gb)` | 4 gigabytes, in bytes |
 | `mb_to_gb(512)` | the same as `gb(512, mb)`; there is one for each pair of units |
+| `hex(4, gb)` | 4 gigabytes in bytes, shown in hexadecimal; `bin`, `oct` and `dec` take a unit too |
 | `gb(x, u32)` | computed as C would in that type: the division truncates and the product is cut |
 
 A whole result is shown with no fraction. When the division leaves a remainder the result is a float, shown

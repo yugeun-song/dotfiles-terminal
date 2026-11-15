@@ -527,10 +527,18 @@ function define(table, name, body) {
 for (const name of Object.keys(BASES)) {
   define(helpers, name, (input, ...options) => {
     const given = number(name, input);
-    const [base, type] = pick(name, options);
-    const value = convert(name, given, type);
-    state.shown = [name, base, type];
-    if (!state.hooked) console.log(render(name, value, base, type));
+    const from = options
+      .map(unit)
+      .reduce((old, key) => (key === undefined ? old : one(name, "unit", old, key)), undefined);
+    const [base, type] = pick(
+      name,
+      options.filter((option) => unit(option) === undefined),
+    );
+    const [value, shown] = from
+      ? scale(name, given, 10 * UNITS.indexOf(from), type)
+      : [convert(name, given, type), type];
+    state.shown = [name, base, shown];
+    if (!state.hooked) console.log(render(name, value, base, shown));
     return value;
   });
 }

@@ -63,7 +63,8 @@ unless Code.ensure_loaded?(IExHelpers) do
 
       An option is a type (`u8` to `s64`, `f32`, `f64`, `big`, or a C name such as `:int` or
       `"unsigned long"`), which converts as a C cast does, or a base, which shows that base
-      instead. With no type an integer is cut to a `u64`, and a float keeps its fraction.
+      instead. A unit (`kb`, `mb`, `gb`, `tb`) says what `value` is in, and it is converted to
+      bytes: `hex(4, gb)`. With no type an integer is cut to a `u64`, and a float keeps its fraction.
       `true` and `false` are 1 and 0, and a one-character string is its code point.
       """
       def unquote(name)(value), do: show(unquote(name), value, [])
@@ -171,8 +172,14 @@ unless Code.ensure_loaded?(IExHelpers) do
 
     defp show(name, value, options) do
       number = number(name, value)
+      {units, options} = Enum.split_with(options, &spelled/1)
       {base, type} = pick(name, options)
-      number = convert(name, number, type)
+
+      {number, type} =
+        case Enum.reduce(units, nil, &one(name, "unit", &2, spelled(&1))) do
+          nil -> {convert(name, number, type), type}
+          unit -> scale(name, number, 10 * Enum.find_index(@units, &(&1 == unit)), type)
+        end
 
       case Process.get(@shown) do
         nil -> IO.puts(render(number, base, type))
