@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Checks this repository before it is installed or committed: static checks,
-# tests/fzf.sh, which runs zshrc's fzf lookup on a fake root, then
-# tests/install.sh, which runs install.sh on a temporary HOME. Nothing here
-# touches the installed configuration. A missing tool skips its check.
+# the formatters, tests/fzf.sh, which runs zshrc's fzf lookup on a fake root,
+# then tests/install.sh, which runs install.sh on a temporary HOME. Nothing
+# here touches the installed configuration. A missing tool skips its check.
 
 set -uo pipefail
 
@@ -99,6 +99,33 @@ if have luajit; then
 else
     echo "SKIP  luajit syntax: luajit is not installed"
 fi
+
+# The formatters: each file is kept as its formatter writes it, under the
+# settings in .editorconfig, so formatting from the editor changes nothing.
+# One that only Neovim's Mason installed counts as installed.
+MASON=${XDG_DATA_HOME:-$HOME/.local/share}/nvim/mason/bin
+formatted() {
+    local name=$1 tool out
+    tool=$(command -v "$2" 2>/dev/null) || tool=$MASON/$2
+    if [[ ! -x $tool ]]; then
+        echo "SKIP  format, $name: $2 is not installed"
+        return 0
+    fi
+    if out=$("$tool" "${@:3}" 2>&1); then
+        echo "PASS  format, $name"
+    else
+        fail "format, $name:"
+        echo "$out" | head -40
+    fi
+}
+formatted shell shfmt -d ./*.sh tests/*.sh shell/*.sh bin/el node/node.sh luajit/luajit.sh bash/bashrc
+formatted lua stylua --check luajit/repl.lua
+formatted "javascript and jsonc" oxfmt --check node/repl.js fastfetch/config.jsonc
+formatted ruby rubocop irb/irbrc
+formatted python ruff format --check gdb/presets.py
+formatted toml taplo fmt --check yazi/theme.toml
+formatted elixir mix format --check-formatted iex/iex.exs
+formatted markdown rumdl check README.md docs
 
 tests/path.sh || failed=1
 tests/history.sh || failed=1

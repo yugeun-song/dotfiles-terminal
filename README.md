@@ -34,7 +34,7 @@ docs/         repl/: every case of the REPL helpers, replayed by tests/repl.sh
 install.sh    places the files (below)
 bootstrap.sh  clones what is not a file here, sets the login shell
 packages.txt  what install.sh installs first (packages.sh)
-tests/        run.sh: static checks, the REPL helpers, the fzf lookup, the installer suite
+tests/        run.sh: static checks, formatters, the REPL helpers, the fzf lookup, the installer suite
 ```
 
 ## Install
@@ -194,8 +194,13 @@ it starts in, after this one.
 ## Checks
 
 ```sh
-tests/run.sh    # shellcheck, the syntax checks, the REPL helpers, the fzf lookup, then install.sh on a temporary HOME
+tests/run.sh    # shellcheck, the syntax checks, the formatters, the REPL helpers, the fzf lookup, then install.sh on a temporary HOME
 ```
+
+Each file is kept as its formatter writes it, under `.editorconfig`, so
+formatting from the editor changes nothing: shfmt, stylua, oxfmt, rubocop,
+ruff, taplo, `mix format` and rumdl. A formatter that is not installed is
+skipped; the zsh files have none and are only parsed.
 
 The installer suite never touches the real HOME: each case runs on its own
 temporary home and a copy of this checkout, with stand-ins for systemctl,
