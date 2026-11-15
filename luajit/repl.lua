@@ -32,6 +32,8 @@ end
 local U64, I64 = ffi.typeof("uint64_t"), ffi.typeof("int64_t")
 ---An integer with a C type: 64 bits of value and an index into KINDS.
 local Int = ffi.typeof("struct { int64_t value; uint8_t kind; }")
+---A single-precision number, C's float; arithmetic on it stays in single precision.
+local Single = ffi.typeof("struct { float value; }")
 local DIGITS = "0123456789ABCDEF"
 ---Each base helper's radix, prefix and bits per digit.
 local BASES = { bin = { 2, "0b", 1 }, oct = { 8, "0o", 3 }, dec = { 10, "" }, hex = { 16, "0x", 4 } }
@@ -167,6 +169,13 @@ local function typed(value)
   return type(value) == "cdata" and ffi.istype(Int, value)
 end
 
+---Whether a value is a single-precision number of ours.
+---@param value any
+---@return boolean
+local function floating(value)
+  return type(value) == "cdata" and ffi.istype(Single, value)
+end
+
 ---Whether a value is LuaJIT's own 64-bit integer (`1LL`, `1ULL`).
 ---@param value any
 ---@return boolean
@@ -185,7 +194,7 @@ end
 ---@param value any
 ---@return boolean
 local function numeric(value)
-  return typed(value) or boxed(value) or type(value) == "number"
+  return typed(value) or boxed(value) or floating(value) or type(value) == "number"
 end
 
 ---Cuts a 64-bit value to a type's width and extends its sign, as a C conversion does.
@@ -263,6 +272,8 @@ end
 local function double(value)
   if type(value) == "number" then
     return value
+  elseif floating(value) then
+    return tonumber(value.value)
   end
   local number, kind = operand(value)
   if kind.name ~= "u64" then
@@ -322,10 +333,24 @@ end
 ---@param float fun(x: number, y: number): number
 ---@param whole fun(x: ffi.cdata*, y: ffi.cdata*, kind: table): ffi.cdata*
 ---@return function
+---An operand of single-precision arithmetic: an integer beside a float is converted to a float first.
+---@param value any
+---@return number
+local function narrowed(value)
+  if floating(value) then
+    return tonumber(value.value)
+  elseif type(value) == "number" then
+    return tonumber(ffi.cast("float", value))
+  end
+  return single(value)
+end
+
 local function arithmetic(float, whole)
   return function(left, right)
     if real(left) or real(right) then
       return float(double(left), double(right))
+    elseif floating(left) or floating(right) then
+      return Single(float(narrowed(left), narrowed(right)))
     end
     local x, y, kind = pair(left, right)
     return make(kind, ffi.cast(I64, whole(x, y, kind)))
@@ -356,6 +381,8 @@ local function compare(test, strict)
     end
     if real(left) or real(right) then
       return test(double(left), double(right))
+    elseif floating(left) or floating(right) then
+      return test(narrowed(left), narrowed(right))
     end
     local x, y, kind = pair(left, right)
     return test(unsigned(kind, x, y))
@@ -421,6 +448,44 @@ ffi.metatype(Int, {
 ---A 64-bit value as the 32-bit number `bit.*` expects, unless the type is 64 bits wide.
 ---@param value ffi.cdata*
 ---@param kind table
+ffi.metatype(Single, {
+  __add = arithmetic(function(x, y)
+    return x + y
+  end),
+  __sub = arithmetic(function(x, y)
+    return x - y
+  end),
+  __mul = arithmetic(function(x, y)
+    return x * y
+  end),
+  __div = arithmetic(function(x, y)
+    return x / y
+  end),
+  __unm = function(value)
+    return Single(-value.value)
+  end,
+  __eq = compare(function(x, y)
+    return x == y
+  end),
+  __lt = compare(function(x, y)
+    return x < y
+  end, true),
+  __le = compare(function(x, y)
+    return x <= y
+  end, true),
+  __tostring = function(value)
+    return tostring(tonumber(value.value))
+  end,
+  __concat = function(left, right)
+    return tostring(left) .. tostring(right)
+  end,
+  __index = function(_, key)
+    if key == "type" then
+      return "f32"
+    end
+  end,
+})
+
 local function narrow(value, kind)
   return kind.bits == 64 and value or tonumber(bit.band(value, U64(0xFFFFFFFF)))
 end
@@ -566,7 +631,7 @@ local function number(name, value)
     return value and 1 or 0
   elseif type(value) == "string" then
     return codepoint(name, value)
-  elseif typed(value) or boxed(value) then
+  elseif typed(value) or boxed(value) or floating(value) then
     return value
   end
   local given = type(value) == "cdata" and tonumber(value) or value
@@ -666,8 +731,11 @@ end
 ---@param kind string
 ---@param value any
 local function cast(name, kind, value)
+  if floating(value) then
+    value = tonumber(value.value)
+  end
   if kind == "f32" then
-    return type(value) == "number" and tonumber(ffi.cast("float", value)) or single(value)
+    return Single(type(value) == "number" and value or single(value))
   elseif kind == "f64" then
     return double(value)
   elseif type(value) == "number" then
@@ -684,7 +752,7 @@ end
 local function convert(name, value, kind)
   if kind then
     return cast(name, kind, value)
-  elseif typed(value) or real(value) then
+  elseif typed(value) or real(value) or floating(value) then
     return value
   end
   local output = cast(name, boxed(value) and ffi.istype(I64, value) and "s64" or "u64", value)
@@ -743,6 +811,9 @@ end
 ---@param base string `bin`, `oct`, `dec`, `hex` or `size`
 ---@return string
 local function render(value, base)
+  if floating(value) then
+    value = tonumber(value.value)
+  end
   if base == "size" then
     if typed(value) or value == 0 or math.abs(value) < 1e-20 or math.abs(value) >= 1e21 then
       return value == 0 and "0" or tostring(value)
@@ -770,7 +841,7 @@ end
 ---What `print` shows for a value after a helper ran: its text in the base called last, or the value itself.
 ---@param value any
 local function result(value)
-  if not (typed(value) or boxed(value)) then
+  if not (typed(value) or boxed(value) or floating(value)) then
     if type(value) ~= "number" or value ~= value or math.abs(value) == math.huge then
       return value
     end
@@ -863,9 +934,10 @@ local function scale(name, value, shift, kind)
   else
     value = convert(name, value)
   end
-  if type(value) == "number" then
-    value = value * 2 ^ shift
-    return kind == "f32" and tonumber(ffi.cast("float", value)) or value
+  if floating(value) then
+    return Single(tonumber(value.value) * 2 ^ shift)
+  elseif type(value) == "number" then
+    return value * 2 ^ shift
   elseif shift >= 0 then
     return value * factor
   elseif kind or (value % factor).value == 0 then
@@ -917,6 +989,8 @@ end
 local function sizeof(operand_)
   if typed(operand_) then
     return KINDS[operand_.kind].bits / 8
+  elseif floating(operand_) then
+    return 4
   elseif boxed(operand_) or real(operand_) then
     return 8
   elseif type(operand_) == "number" then

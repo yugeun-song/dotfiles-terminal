@@ -464,6 +464,30 @@ precision; an integer type drops the fraction.
 | `hex(1.5, big)` | `0x1` |
 | `hex(1e39, f32)` | `Infinity` |
 
+### Single precision
+
+`f32` returns an `IrbHelpers::Single`, which computes as C's `float` does: `+`, `-`, `*` and `/` round their result to single precision, an integer beside it is converted to single precision first, and a Float, C's `double`, makes the result a Float.
+
+| Input | Result |
+|---|---|
+| `f32(0.1) + f32(0.2)` | `0.30000001192092896` |
+| `f32(0.1) + 0.2` | `0.30000000149011613` |
+| `f32(1) / 3` | `0.3333333432674408` |
+| `1 / f32(3)` | `0.3333333432674408` |
+| `f32(16777216) + 1` | `16777216.0` |
+| `u32(16777217) + f32(0)` | `16777216.0` |
+| `f32(0.1) * f32(0.1)` | `0.010000000707805157` |
+| `-f32(1.5)` | `-1.5` |
+| `f32(1) / 0` | `Infinity` |
+| `f32(1) < 2` | `true` |
+| `s32(1) < f32(1.5)` | `true` |
+| `u32(16777217) == f32(16777216)` | `true` |
+| `hex(f32(0.1))` | `0x0.199999A` |
+| `u8(f32(3.9))` | `3` |
+| `f64(f32(0.1))` | `0.10000000149011612` |
+| `sizeof(f32(1))` | `4` |
+| `kb(f32(1536))` | `1.5` |
+
 ## Booleans, characters and other values
 
 `true` and `false` are 1 and 0, and a string of one character is its code point.

@@ -32,7 +32,8 @@ require 'forwardable'
 #   hex(1 << 100, big)    # => 0x10000000000000000000000000
 #
 # u8 s8 u16 s16 u32 s32 u64 s64:: a fixed-width integer, an IrbHelpers::Int
-# f32 f64:: a Float; +f32+ is rounded to single precision
+# f32:: a single-precision number, an IrbHelpers::Single
+# f64:: a Float
 # big:: no width, a plain Integer: nothing is cut and a negative number keeps its sign
 #
 # The same names are functions that convert: <tt>u16(0x12345)</tt> is C's <tt>(uint16_t)0x12345</tt>.
@@ -334,16 +335,17 @@ module IrbHelpers
   ##
   # :method: f32
   # :call-seq:
-  #   f32(value) -> Float
+  #   f32(value) -> IrbHelpers::Single
   #   f32        -> :f32
   #
-  # Converts +value+ as C's <tt>(float)value</tt> does: the nearest single-precision number, as a Float.
-  # Arithmetic on the result is Ruby's, in double precision. Called with nothing, it returns its name.
+  # Converts +value+ as C's <tt>(float)value</tt> does: the nearest single-precision number. Arithmetic on the
+  # result stays in single precision, as C's +float+ does. Called with nothing, it returns its name.
   #
   #   f32(0.1)            # => 0.10000000149011612
   #   f32(16777217)       # => 16777216.0
   #   hex(0.1, f32)       # => 0x0.199999A
   #   f32(1e39)           # => Infinity
+  #   f32(0.1) + f32(0.2) # => 0.30000001192092896
 
   ##
   # :method: f64
@@ -758,7 +760,7 @@ module IrbHelpers
     # Divides in the common type, truncating toward zero: <tt>s32(-7) / 2</tt> is -3. A zero divisor raises
     # ZeroDivisionError.
     def /(other)
-      binary(other) { |left, right| left.is_a?(Float) ? left / right : (left - left.remainder(right)) / right }
+      binary(other) { |left, right| left.is_a?(Integer) ? (left - left.remainder(right)) / right : left / right }
     end
 
     # The remainder of that division, with the sign of the dividend: <tt>s32(-7) % 2</tt> is -1.
@@ -796,6 +798,7 @@ module IrbHelpers
     # <tt>s32(-1) < u32(1)</tt> is false.
     def <=>(other)
       return to_f <=> other if other.is_a?(Float)
+      return Single.new(to_i) <=> other if other.is_a?(Single)
 
       left, right, = operands(other)
       left <=> right
@@ -851,6 +854,7 @@ module IrbHelpers
 
     def binary(other)
       return yield(to_f, other) if other.is_a?(Float)
+      return yield(Single.new(to_i), other) if other.is_a?(Single)
 
       left, right, type = operands(other)
       Int.new(type, yield(left, right))
@@ -862,6 +866,118 @@ module IrbHelpers
       count = Rules.count(other)
       IrbHelpers.undefined_shift(type, count, bits) unless count.between?(0, bits - 1)
       Int.new(type, yield(Rules.wrap(type, to_i), count & (bits - 1)))
+    end
+  end
+
+  ##
+  # A single-precision number that computes as C's +float+ does. +f32+ returns one.
+  #
+  #   f32(0.1)              # => 0.10000000149011612
+  #   f32(0.1) + f32(0.2)   # => 0.30000001192092896
+  #   f32(1) / 3            # => 0.3333333432674408
+  #   f32(0.1) + 0.2        # => 0.30000000149011613
+  #   f32(16777216) + 1     # => 16777216.0
+  #
+  # <tt>+</tt>, <tt>-</tt>, <tt>*</tt> and <tt>/</tt> round their result to single precision. An integer beside
+  # it is converted to single precision first; a Float, C's +double+, makes the result a Float. Any other Float
+  # method acts on the value as a Float.
+  class Single
+    include Comparable
+
+    # The value as a Float: a double that holds exactly the single-precision number.
+    attr_reader :to_f
+
+    # Rounds +number+ to single precision.
+    def initialize(number)
+      @to_f = Rules.single(number)
+      freeze
+    end
+
+    ##
+    # :method: +
+    # :call-seq: self + other -> IrbHelpers::Single or Float
+    #
+    # Adds, in single precision unless +other+ is a Float.
+
+    ##
+    # :method: -
+    # :call-seq: self - other -> IrbHelpers::Single or Float
+    #
+    # Subtracts, in single precision unless +other+ is a Float.
+
+    ##
+    # :method: *
+    # :call-seq: self * other -> IrbHelpers::Single or Float
+    #
+    # Multiplies, in single precision unless +other+ is a Float.
+
+    ##
+    # :method: /
+    # :call-seq: self / other -> IrbHelpers::Single or Float
+    #
+    # Divides, in single precision unless +other+ is a Float. A zero divisor gives an infinity or NaN.
+
+    %i[+ - * /].each do |operator|
+      define_method(operator) do |other|
+        next to_f.public_send(operator, other) if other.is_a?(Float)
+
+        Single.new(to_f.public_send(operator, Single.new(Rules.plain(other)).to_f))
+      end
+    end
+
+    # Negates.
+    def -@
+      Single.new(-to_f)
+    end
+
+    # Itself.
+    def +@
+      self
+    end
+
+    # Compares, with an integer converted to single precision first, as C converts it.
+    def <=>(other)
+      to_f <=> (other.is_a?(Float) ? other : Single.new(Rules.plain(other)).to_f)
+    rescue TypeError, NoMethodError
+      nil
+    end
+
+    # The type's name, <tt>:f32</tt>.
+    def type
+      :f32
+    end
+
+    # The width in bytes, C's +sizeof+: 4.
+    def size
+      4
+    end
+
+    def to_s # :nodoc:
+      to_f.to_s
+    end
+
+    alias inspect to_s
+
+    def coerce(other) # :nodoc:
+      other.is_a?(Float) ? [other, to_f] : [Single.new(other), self]
+    end
+
+    def eql?(other) # :nodoc:
+      other.is_a?(Single) && (to_f <=> other.to_f)&.zero?
+    end
+
+    def hash # :nodoc:
+      [Single, to_f].hash
+    end
+
+    def respond_to_missing?(name, include_private = false) # :nodoc:
+      to_f.respond_to?(name, include_private) || super
+    end
+
+    def method_missing(name, *arguments, **options, &block) # :nodoc:
+      return super unless to_f.respond_to?(name)
+
+      to_f.public_send(name, *arguments.map { |argument| Rules.plain(argument) }, **options, &block)
     end
   end
 
@@ -896,6 +1012,7 @@ module IrbHelpers
     def self.plain(value)
       case value
       when Int then value.to_i
+      when Single then value.to_f
       else value
       end
     end
@@ -1002,7 +1119,7 @@ module IrbHelpers
 
     def self.number?(value)
       case value
-      when Int, Integer, Float then true
+      when Int, Single, Integer, Float then true
       else false
       end
     end
@@ -1010,7 +1127,7 @@ module IrbHelpers
     def self.number(name, value)
       case value
       when Int, Integer then value
-      when Float then finite(name, value)
+      when Single, Float then finite(name, value)
       when true, false then value ? 1 : 0
       when String then code_point(name, value)
       else raise ArgumentError, "#{name} #{EXPECTS}, got #{describe(value)}"
@@ -1018,7 +1135,7 @@ module IrbHelpers
     end
 
     def self.finite(name, value)
-      raise RangeError, "#{name} expects a finite number, got #{value}" unless value.finite?
+      raise RangeError, "#{name} expects a finite number, got #{value}" unless value.to_f.finite?
 
       value
     end
@@ -1044,7 +1161,7 @@ module IrbHelpers
       if INTS.key?(type)
         Int.new(type, Rules.whole(type, number))
       elsif FLOATS.include?(type)
-        type == :f32 ? Rules.single(number) : number.to_f
+        type == :f32 ? Single.new(number) : number.to_f
       else
         number.to_i
       end
@@ -1052,7 +1169,7 @@ module IrbHelpers
 
     def self.sizeof(operand)
       case operand
-      when Int then operand.size
+      when Int, Single then operand.size
       when Integer then Rules.literal(operand).size
       when Float then 8
       else width(Options.type('sizeof', operand))
@@ -1115,7 +1232,8 @@ module IrbHelpers
     def self.scale(name, number, shift, type)
       number = type ? Convert.cast(type, number) : Convert.default(name, number)
       case number
-      when Float then type == :f32 ? Rules.single(Math.ldexp(number, shift)) : Math.ldexp(number, shift)
+      when Float then Math.ldexp(number, shift)
+      when Single then Single.new(Math.ldexp(number.to_f, shift))
       when Int then fixed(number, shift, type)
       else exact(number, shift)
       end
@@ -1136,6 +1254,7 @@ module IrbHelpers
 
   module Text # :nodoc:
     def self.render(value, base)
+      value = value.to_f if value.is_a?(Single)
       return size(value) if base == :size
 
       radix, prefix = BASES.fetch(base)
@@ -1216,7 +1335,7 @@ module IrbHelpers
     text = Text.render(value, base)
     return text unless defined?(IRB::Color)
 
-    IRB::Color.colorize(text, [value.is_a?(Float) ? :MAGENTA : :BLUE, :BOLD])
+    IRB::Color.colorize(text, [value.is_a?(Int) ? :BLUE : :MAGENTA, :BOLD])
   rescue StandardError
     nil
   end

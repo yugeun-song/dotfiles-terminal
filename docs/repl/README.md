@@ -88,6 +88,9 @@ In irb and LuaJIT a converted value keeps its type, and arithmetic on it follows
 toward zero, `%` takes the sign of the dividend, and a shift and a comparison follow the sign. A plain number
 beside a typed one is typed as a decimal C constant: `s32` when it fits, else `s64`, else `u64`.
 
+`f32` returns a single-precision value there too, and `+`, `-`, `*` and `/` on it round to single precision
+as C's `float` does, unless a double takes part.
+
 IEx and node cannot change what their operators do. A conversion cuts where it is called, and what is computed
 from the result afterwards is the language's own arithmetic, until the next conversion.
 
