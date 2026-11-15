@@ -122,7 +122,7 @@ formatted shell shfmt -d ./*.sh tests/*.sh shell/*.sh bin/el node/node.sh luajit
 formatted lua stylua --check luajit/repl.lua
 formatted "javascript and jsonc" oxfmt --check node/repl.js fastfetch/config.jsonc
 formatted ruby rubocop irb/irbrc
-formatted python ruff format --check gdb/presets.py
+formatted python ruff format --no-cache --check gdb/presets.py
 formatted toml taplo fmt --check yazi/theme.toml
 formatted elixir mix format --check-formatted iex/iex.exs
 formatted markdown rumdl check README.md docs
