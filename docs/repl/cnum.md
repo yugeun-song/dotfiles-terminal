@@ -107,6 +107,9 @@ The types are `u8` to `u64`, `s8` to `s64`, `f32`, `f64` and `big` (no width), a
 | `hex(-1, int)` | `0xFFFFFFFF` |
 | `hex(-255, big)` | `-0xFF` |
 | `hex(255, HEX)` | `0xFF` |
+| `hex(-1, U16)` | `0xFFFF` |
+| `hex(-1, Size_T)` | `0xFFFFFFFFFFFFFFFF` |
+| `hex(-1, bin, u8)` | `0b11111111` |
 | `sizeof(int)` | `4` |
 | `sizeof(unsigned long)` | `8` |
 | `sizeof(char)` | `1` |

@@ -656,6 +656,7 @@
         [(eq? (car tree) 'var)
          (define text (string-downcase (cadr tree)))
          (cond [(hash-has-key? BASES (string->symbol text)) (cons 'base (string->symbol text))]
+               [(hash-ref KNOWN text #f) => (lambda (type) (cons 'type type))]
                [(hash-ref SPELLED text #f) => (lambda (unit) (cons 'unit unit))]
                [else #f])]
         [else #f]))
