@@ -49,8 +49,28 @@ const SIZES = [
   ["long", 64],
 ];
 const BOXES = [Number, Boolean, String, BigInt];
+const UNITS = ["byte", "kb", "mb", "gb", "tb"];
+const SPELLED = new Map([
+  ["b", "byte"],
+  ["byte", "byte"],
+  ["bytes", "byte"],
+  ...[
+    ["kb", "kilo", "kibi"],
+    ["mb", "mega", "mebi"],
+    ["gb", "giga", "gibi"],
+    ["tb", "tera", "tebi"],
+  ].flatMap(([unit, ...words]) => [
+    [unit, unit],
+    [`${unit[0]}ib`, unit],
+    ...words.flatMap((word) => [
+      [`${word}byte`, unit],
+      [`${word}bytes`, unit],
+    ]),
+  ]),
+]);
 
 const helpers = new Map();
+const units = new Map();
 const extras = new Map();
 const state = { shown: null, hooked: false, noted: false };
 
@@ -222,7 +242,84 @@ function real(value, radix, prefix) {
   return `${sign}${whole(BigInt(Math.trunc(size)), radix, prefix)}${digits}`;
 }
 
+function places(value) {
+  const [digits, rest] = Math.abs(value).toFixed(100).split(".");
+  const kept = (rest.startsWith("00000") ? rest.slice(0, 20) : rest.slice(0, 5)).replace(/0+$/, "");
+  if (kept === "") return digits === "0" ? String(value) : `${value < 0 ? "-" : ""}${digits}`;
+  return `${value < 0 ? "-" : ""}${digits}.${kept}`;
+}
+
+function sized(name, value, type) {
+  if (typeof value !== "number" || (type && !(type in FLOATS)))
+    return render(name, value, "dec", type);
+  if (Number.isInteger(value))
+    return Math.abs(value) < 1e21 ? BigInt(value).toString() : String(value);
+  return places(value);
+}
+
+function unit(option) {
+  if (units.has(option)) return units.get(option);
+  return typeof option === "string" ? SPELLED.get(option.trim().toLowerCase()) : undefined;
+}
+
+function measures(name, options) {
+  let from;
+  let type;
+  for (const option of options) {
+    const key = unit(option);
+    const other = key === undefined ? resolve(option) : undefined;
+    if (key !== undefined) from = one(name, "unit", from, key);
+    else if (other !== undefined && !(other in BASES)) type = one(name, "type", type, other);
+    else {
+      const names = [...UNITS, ...NAMES.slice(Object.keys(BASES).length)].join(", ");
+      throw new TypeError(
+        `${name}() expects options among ${names} or a C type name, got ${describe(option)}`,
+      );
+    }
+  }
+  return [from || "byte", type];
+}
+
+function scale(name, value, shift, type) {
+  const size = Math.abs(shift);
+  if (type in FLOATS || (!type && typeof value === "number")) {
+    const scaled = (type ? to(name, type, value) : value) * 2 ** shift;
+    return [type === "f32" ? Math.fround(scaled) : scaled, type];
+  }
+  const factor = 1n << BigInt(size);
+  if (!type || type === "big") {
+    const whole = type ? to(name, type, value) : convert(name, value, type);
+    if (shift >= 0) return [type ? whole * factor : BigInt.asUintN(64, whole * factor), type];
+    if (whole % factor === 0n) return [whole / factor, type];
+    return [Number(whole) / 2 ** size, undefined];
+  }
+  const [bits, signed] = INTS[type];
+  const width = Math.max(bits, size > 30 ? 64 : 32);
+  const cut = signed || width > bits ? BigInt.asIntN : BigInt.asUintN;
+  const whole = cut(width, BigInt(to(name, type, value)));
+  const scaled = cut(width, shift < 0 ? whole / factor : whole * factor);
+  return [
+    width < 64 && typeof value === "number" ? Number(scaled) : scaled,
+    `${cut === BigInt.asIntN ? "s" : "u"}${width}`,
+  ];
+}
+
+function measure(name, target, input, options) {
+  const given = number(name, input);
+  const [from, type] = measures(name, options);
+  const [value, shown] = scale(
+    name,
+    given,
+    10 * (UNITS.indexOf(from) - UNITS.indexOf(target)),
+    type,
+  );
+  state.shown = [name, "size", shown];
+  if (!state.hooked) console.log(render(name, value, "size", shown));
+  return value;
+}
+
 function render(name, value, base, type) {
+  if (base === "size") return sized(name, value, type);
   const [radix, prefix] = BASES[base];
   const suffix = typeof value === "bigint" ? "n" : "";
   if (type in FLOATS) return real(to(name, type, value), radix, prefix);
@@ -278,6 +375,16 @@ for (const name of NAMES.slice(Object.keys(BASES).length)) {
     if (rest.length > 0) throw new TypeError(`${name}() takes one value, got ${rest.length + 1}`);
     return to(name, name, number(name, input));
   });
+}
+
+for (const name of UNITS) {
+  define(units, name, (input, ...options) => measure(name, name, input, options));
+  for (const target of UNITS) {
+    if (target !== name) {
+      const both = `${name}_to_${target}`;
+      define(extras, both, (input, ...options) => measure(both, target, input, [name, ...options]));
+    }
+  }
 }
 
 define(extras, "cast", (type, input) => to("cast", kind("cast", type), number("cast", input)));
@@ -336,7 +443,7 @@ function isInteractiveRepl() {
 }
 
 if (isInteractiveRepl()) {
-  for (const [body, name] of [...helpers, ...extras]) {
+  for (const [body, name] of [...helpers, ...units, ...extras]) {
     if (!(name in globalThis)) {
       Object.defineProperty(globalThis, name, {
         value: body,

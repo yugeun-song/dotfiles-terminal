@@ -410,6 +410,129 @@ before the message and a stack trace after it.
 | `sizeof("foo")` | `TypeError: sizeof() expects a type among u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got 'foo'` |
 | `sizeof(hex)` | `TypeError: sizeof() expects a type among u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got [Function: hex]` |
 
+## Sizes
+
+`byte`, `kb`, `mb`, `gb` and `tb` convert a size to their unit, in steps of 1024.
+
+### To a unit
+
+The value is in bytes.
+
+| Input | Result |
+|---|---|
+| `gb(0x40000000)` | `1` |
+| `mb(0x200000)` | `2` |
+| `kb(4096)` | `4` |
+| `tb(0x7F0000000000)` | `127` |
+| `byte(4096)` | `4096` |
+| `kb("A")` | `0.06347` |
+| `kb(true)` | `0.00097` |
+
+### From a unit
+
+A unit after the value says what the value is in. It is a bare name or a string, in any letter case, short or spelled out.
+
+| Input | Result |
+|---|---|
+| `gb(512, mb)` | `0.5` |
+| `byte(4, gb)` | `4294967296` |
+| `byte(1.5, kb)` | `1536` |
+| `kb(1, gb)` | `1048576` |
+| `tb(512, gb)` | `0.5` |
+| `mb(3, gb)` | `3072` |
+| `tb(5, tb)` | `5` |
+| `gb(512, "Megabyte")` | `0.5` |
+| `gb(512, "MiB")` | `0.5` |
+| `gb(512, "megabytes")` | `0.5` |
+| `byte(1, "GiB")` | `1073741824` |
+| `kb(1, "Terabyte")` | `1073741824` |
+| `mb(1048576, "b")` | `1` |
+
+### Both units in the name
+
+`A_to_B(x)` is `B(x, A)`, for each pair of `byte`, `kb`, `mb`, `gb` and `tb`.
+
+| Input | Result |
+|---|---|
+| `mb_to_gb(512)` | `0.5` |
+| `gb_to_byte(4)` | `4294967296` |
+| `kb_to_mb(1536)` | `1.5` |
+| `tb_to_gb(2)` | `2048` |
+| `byte_to_kb(1024)` | `1` |
+| `gb_to_tb(1)` | `0.00097` |
+| `mb_to_kb(3)` | `3072` |
+| `byte_to_tb(1)` | `0.0000000000009094947` |
+| `gb_to_mb(1, u8)` | `1024` |
+
+### A result that is not whole
+
+When the division leaves a remainder the result is a float: shown to 5 places, cut and not rounded, or to 20 when the first 5 are zeros. A whole result has no fraction.
+
+| Input | Result |
+|---|---|
+| `kb(1000)` | `0.97656` |
+| `kb(1025)` | `1.00097` |
+| `mb(0x1234567)` | `18.20444` |
+| `gb(1.5e9)` | `1.39698` |
+| `kb(1023.999999)` | `0.99999` |
+| `mb(1)` | `0.00000095367431640625` |
+| `gb(1)` | `0.00000000093132257461` |
+| `tb(1)` | `0.0000000000009094947` |
+| `gb(0x1000)` | `0.000003814697265625` |
+| `kb(-2049.0)` | `-2.00097` |
+| `kb(1e-30)` | `9.765625e-34` |
+| `kb(2048.5 - 0.5)` | `2` |
+
+### In arithmetic
+
+A conversion returns its number, and the result line follows the helper called last.
+
+| Input | Result |
+|---|---|
+| `gb(byte(1024))` | `0.00000095367431640625` |
+| `hex(byte(2, mb))` | `0x200000` |
+| `gb(0x40000000) + 1` | `2` |
+| `mb(1, gb) * 1.5` | `1536` |
+| `bin(kb(4096))` | `0b100` |
+| `dec(gb(1, tb))` | `1024` |
+
+### With a type
+
+A type among the options converts the value first, as a C cast does, and the constant is then multiplied or divided as C would: the division truncates and the product is cut. Without one a number stays a number and a BigInt is a `u64`.
+
+| Input | Result |
+|---|---|
+| `gb(0x1000, u64)` | `0n` |
+| `byte(4, gb, u32)` | `0` |
+| `byte(4, tb, u32)` | `4398046511104n` |
+| `kb(-2048)` | `-2` |
+| `kb(-2048, s64)` | `-2n` |
+| `kb(-2049, s64)` | `-2n` |
+| `kb(200, mb, u8)` | `204800` |
+| `kb(-1, u32)` | `4194303` |
+| `kb(-4096, "int")` | `-4` |
+| `gb(1, f32)` | `0.00000000093132257461` |
+| `gb(0x1000, f64)` | `0.000003814697265625` |
+| `gb(0x1000, big)` | `0.000003814697265625` |
+| `gb(1n << 70n, big)` | `1099511627776n` |
+| `gb(0x1000n)` | `0.000003814697265625` |
+| `gb(0x40000000n)` | `1n` |
+| `kb(-2048n)` | `18014398509481982n` |
+| `byte(1n << 30n, tb)` | `0n` |
+
+### Errors
+
+| Input | Error |
+|---|---|
+| `gb(1, mb, kb)` | `TypeError: gb() takes one unit, got mb and kb` |
+| `mb_to_gb(1, kb)` | `TypeError: mb_to_gb() takes one unit, got mb and kb` |
+| `gb(1, hex)` | `TypeError: gb() expects options among byte, kb, mb, gb, tb, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got [Function: hex]` |
+| `gb(1, u16, s8)` | `TypeError: gb() takes one type, got u16 and s8` |
+| `gb(null)` | `TypeError: gb() expects a number, bigint, boolean, or single character, got null` |
+| `gb("AB")` | `TypeError: gb() expects a single character, got 'AB' (2 code points)` |
+| `hex(1, mb)` | `TypeError: hex() expects options among bin, oct, dec, hex, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got [Function: mb]` |
+| `gb(1, "furlong")` | `TypeError: gb() expects options among byte, kb, mb, gb, tb, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got 'furlong'` |
+
 ## A helper without a value
 
 A bare name is the function itself, which is how `u16` or `hex` works as an option.

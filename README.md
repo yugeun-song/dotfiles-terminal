@@ -178,8 +178,12 @@ IEx and irb, or a C name such as `"unsigned long"`: `u8` to `u64`, `s8` to
 beside `cast(type, x)` and `sizeof`. In irb and LuaJIT a converted value
 keeps its type and computes by C's rules (promotion, wrapping, truncating
 division); IEx and node cannot change their operators, so there it is a plain
-number, cut where it was converted. [docs/repl](docs/repl/README.md) lists
-every case and error, and `tests/repl.sh` runs each one.
+number, cut where it was converted. `byte`, `kb`, `mb`, `gb` and `tb` convert
+sizes in steps of 1024: `gb(x)` from bytes, `gb(512, mb)`, `mb_to_gb(512)`.
+
+[docs/repl](docs/repl/README.md) has the whole toolbox, one page per REPL with
+each call and what it prints; look there for what you need. `tests/repl.sh`
+runs every row of those pages.
 
 A node or LuaJIT number is exact up to 2^53 and its bit operations are
 32-bit; BigInt and `ULL` literals carry 64 bits. LuaJIT shows a value only

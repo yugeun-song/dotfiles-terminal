@@ -66,7 +66,21 @@ local WORDS = { signed = 1, unsigned = 1, char = 1, short = 1, int = 1, long = 2
 local APART = { { "signed", "unsigned" }, { "char", "short", "long" }, { "char", "int" } }
 local SIZES = { char = 8, short = 16, long = 64 }
 
-local helpers, raw = {}, print
+local UNITS = { "byte", "kb", "mb", "gb", "tb" }
+local SPELLED = { b = "byte", byte = "byte", bytes = "byte" }
+for unit, words in pairs({
+  kb = { "kilo", "kibi" },
+  mb = { "mega", "mebi" },
+  gb = { "giga", "gibi" },
+  tb = { "tera", "tebi" },
+}) do
+  SPELLED[unit], SPELLED[unit:sub(1, 1) .. "ib"] = unit, unit
+  for _, word in ipairs(words) do
+    SPELLED[word .. "byte"], SPELLED[word .. "bytes"] = unit, unit
+  end
+end
+
+local helpers, units, raw = {}, {}, print
 local shown, hooked, noted
 
 local function fail(message, ...)
@@ -556,7 +570,22 @@ local function fraction(value, radix, prefix)
   return text
 end
 
+local function places(value)
+  local digits, rest = ("%.60f"):format(math.abs(value)):match("^(%d+)%.(%d+)$")
+  local kept = (rest:sub(1, 5) == "00000" and rest:sub(1, 20) or rest:sub(1, 5)):gsub("0+$", "")
+  if kept == "" then
+    return digits == "0" and tostring(value) or (value < 0 and "-" or "") .. digits
+  end
+  return (value < 0 and "-" or "") .. digits .. "." .. kept
+end
+
 local function render(value, base)
+  if base == "size" then
+    if typed(value) or value == 0 or math.abs(value) < 1e-20 or math.abs(value) >= 1e21 then
+      return value == 0 and "0" or tostring(value)
+    end
+    return value % 1 == 0 and ("%.0f"):format(value) or places(value)
+  end
   local radix, prefix, step = unpack(BASES[base])
   if not typed(value) then
     return fraction(value, radix, prefix)
@@ -582,6 +611,9 @@ local function result(value)
     end
   end
   local ok, text = pcall(function()
+    if shown.base == "size" and type(value) == "number" and not shown.type then
+      return render(value, "size")
+    end
     return render(convert(shown.name, value, shown.type), shown.base)
   end)
   return ok and text or value
@@ -615,6 +647,81 @@ for _, name in ipairs(NAMES) do
       end
       return cast(name, name, number(name, (...)))
     end)
+  end
+end
+
+local function unit(option)
+  if option ~= nil and units[option] then
+    return units[option]
+  end
+  return type(option) == "string" and SPELLED[option:lower():gsub("^%s+", ""):gsub("%s+$", "")] or nil
+end
+
+local function measures(name, ...)
+  local from, kind
+  for index = 1, select("#", ...) do
+    local option = select(index, ...)
+    local key = unit(option)
+    local other = not key and resolve(option)
+    if key then
+      from = one(name, "unit", from, key)
+    elseif other and not BASES[other] then
+      kind = one(name, "type", kind, other)
+    else
+      local names = table.concat(UNITS, ", ") .. ", " .. table.concat(NAMES, ", ", 5)
+      fail("%s expects options among %s or a C type name, got %s", name, names, describe(option))
+    end
+  end
+  return from or "byte", kind
+end
+
+local function scale(name, value, shift, kind)
+  local factor = 2 ^ math.abs(shift)
+  if kind then
+    value = cast(name, kind, value)
+  else
+    value = convert(name, value)
+  end
+  if type(value) == "number" then
+    value = value * 2 ^ shift
+    return kind == "f32" and tonumber(ffi.cast("float", value)) or value
+  elseif shift >= 0 then
+    return value * factor
+  elseif kind or (value % factor).value == 0 then
+    return value / factor
+  end
+  return double(value) / factor
+end
+
+local function measure(name, target, value, ...)
+  local input = number(name, value)
+  local from, kind = measures(name, ...)
+  for index, other in ipairs(UNITS) do
+    from = other == from and index or from
+  end
+  local output = scale(name, input, 10 * (from - target), kind)
+  shown = { name = name, base = "size", type = FLOATS[kind] and kind or nil }
+  if not hooked then
+    raw(render(output, "size"))
+  end
+  return output
+end
+
+for index, name in ipairs(UNITS) do
+  local body = function(value, ...)
+    return measure(name, index, value, ...)
+  end
+  units[body] = name
+  if rawget(_G, name) == nil then
+    rawset(_G, name, body)
+  end
+  for target, other in ipairs(UNITS) do
+    local both = name .. "_to_" .. other
+    if target ~= index and rawget(_G, both) == nil then
+      rawset(_G, both, function(value, ...)
+        return measure(both, target, value, name, ...)
+      end)
+    end
   end
 end
 

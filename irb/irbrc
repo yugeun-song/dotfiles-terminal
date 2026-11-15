@@ -69,6 +69,21 @@ require 'forwardable'
 #
 # A plain Integer wider than 64 bits is cut to its low 64 with a note on standard error, unless a type says
 # otherwise.
+#
+# == Sizes
+#
+# +byte+, +kb+, +mb+, +gb+ and +tb+ convert a size to their unit, in steps of 1024. The value is in bytes unless a
+# unit follows it, and <tt>mb_to_gb</tt> and the like name both units.
+#
+#   gb(0x40000000)        # => 1
+#   gb(512, mb)           # => 0.5
+#   byte(4, gb)           # => 4294967296
+#   hex(byte(2, mb))      # => 0x200000
+#   mb_to_kb(3)           # => 3072
+#   gb(0x1000)            # => 0.000003814697265625
+#
+# A result that is not whole is a Float, shown to 5 places, or to 20 when the first 5 are zeros. With a type the
+# division truncates as C's does: <tt>gb(0x1000, u64)</tt> is 0.
 module IrbHelpers
   # :stopdoc:
   BASES = { bin: [2, '0b'], oct: [8, '0o'], dec: [10, ''], hex: [16, '0x'] }.freeze
@@ -77,6 +92,7 @@ module IrbHelpers
   TYPES = [*INTS.keys, *FLOATS, :big].freeze
   NAMES = [*BASES.keys, *TYPES].freeze
   NONE = Object.new.freeze
+  UNITS = %i[byte kb mb gb tb].freeze
   # :startdoc:
 
   ##
@@ -360,6 +376,262 @@ module IrbHelpers
     define_method(name) do |value = NONE|
       NONE.equal?(value) ? name : Convert.cast(name, Convert.number(name, value))
     end
+  end
+
+  ##
+  # :method: byte
+  # :call-seq:
+  #   byte(value, *options) -> number
+  #   byte                  -> :byte
+  #
+  # Converts a size to bytes, in steps of 1024, and shows it. +value+ is in bytes unless a unit says otherwise.
+  #
+  #   byte(4, gb)           # => 4294967296
+  #   byte(1.5, kb)         # => 1536
+  #   hex(byte(2, mb))      # => 0x200000
+  #   byte(u32(4), gb)      # => 0
+  #
+  # +options+ come in any order and letter case, each as a bare name, a Symbol or a String:
+  #
+  # a unit:: +byte+ +kb+ +mb+ +gb+ +tb+, the unit +value+ is in; also <tt>:megabyte</tt>, <tt>"MiB"</tt> and the like.
+  # a type:: +u8+ to +s64+, +f32+, +f64+, +big+ or a C name. +value+ is converted to it first, as by a C cast.
+  #
+  # A plain Integer is a +u64+, and an integer keeps its type: the product is cut to it as C cuts it. When the
+  # division leaves a remainder the result is a Float instead, shown to 5 places, or to 20 when the first 5 are
+  # zeros; with a type among the options the division truncates as C's does. Called with nothing, it returns its
+  # name.
+  #
+  # Raises ArgumentError for another kind of value, an unknown option or two different units or types.
+
+  ##
+  # :method: kb
+  # :call-seq:
+  #   kb(value, *options) -> number
+  #   kb                  -> :kb
+  #
+  # Converts a size to kilobytes, in steps of 1024, and shows it. +value+ is in bytes unless a unit says otherwise.
+  #
+  #   kb(4096)              # => 4
+  #   kb(1, gb)             # => 1048576
+  #   kb(1000)              # => 0.97656
+  #   kb(s32(-4096))        # => -4
+  #
+  # +options+ come in any order and letter case, each as a bare name, a Symbol or a String:
+  #
+  # a unit:: +byte+ +kb+ +mb+ +gb+ +tb+, the unit +value+ is in; also <tt>:megabyte</tt>, <tt>"MiB"</tt> and the like.
+  # a type:: +u8+ to +s64+, +f32+, +f64+, +big+ or a C name. +value+ is converted to it first, as by a C cast.
+  #
+  # A plain Integer is a +u64+, and an integer keeps its type: the product is cut to it as C cuts it. When the
+  # division leaves a remainder the result is a Float instead, shown to 5 places, or to 20 when the first 5 are
+  # zeros; with a type among the options the division truncates as C's does. Called with nothing, it returns its
+  # name.
+  #
+  # Raises ArgumentError for another kind of value, an unknown option or two different units or types.
+
+  ##
+  # :method: mb
+  # :call-seq:
+  #   mb(value, *options) -> number
+  #   mb                  -> :mb
+  #
+  # Converts a size to megabytes, in steps of 1024, and shows it. +value+ is in bytes unless a unit says otherwise.
+  #
+  #   mb(0x200000)          # => 2
+  #   mb(3, gb)             # => 3072
+  #   mb(512, kb)           # => 0.5
+  #   mb(0x1FFFFF, u32)     # => 1
+  #
+  # +options+ come in any order and letter case, each as a bare name, a Symbol or a String:
+  #
+  # a unit:: +byte+ +kb+ +mb+ +gb+ +tb+, the unit +value+ is in; also <tt>:megabyte</tt>, <tt>"MiB"</tt> and the like.
+  # a type:: +u8+ to +s64+, +f32+, +f64+, +big+ or a C name. +value+ is converted to it first, as by a C cast.
+  #
+  # A plain Integer is a +u64+, and an integer keeps its type: the product is cut to it as C cuts it. When the
+  # division leaves a remainder the result is a Float instead, shown to 5 places, or to 20 when the first 5 are
+  # zeros; with a type among the options the division truncates as C's does. Called with nothing, it returns its
+  # name.
+  #
+  # Raises ArgumentError for another kind of value, an unknown option or two different units or types.
+
+  ##
+  # :method: gb
+  # :call-seq:
+  #   gb(value, *options) -> number
+  #   gb                  -> :gb
+  #
+  # Converts a size to gigabytes, in steps of 1024, and shows it. +value+ is in bytes unless a unit says otherwise.
+  #
+  #   gb(0x40000000)        # => 1
+  #   gb(512, mb)           # => 0.5
+  #   gb(0x1000)            # => 0.000003814697265625
+  #   gb(0x1000, u64)       # => 0
+  #
+  # +options+ come in any order and letter case, each as a bare name, a Symbol or a String:
+  #
+  # a unit:: +byte+ +kb+ +mb+ +gb+ +tb+, the unit +value+ is in; also <tt>:megabyte</tt>, <tt>"MiB"</tt> and the like.
+  # a type:: +u8+ to +s64+, +f32+, +f64+, +big+ or a C name. +value+ is converted to it first, as by a C cast.
+  #
+  # A plain Integer is a +u64+, and an integer keeps its type: the product is cut to it as C cuts it. When the
+  # division leaves a remainder the result is a Float instead, shown to 5 places, or to 20 when the first 5 are
+  # zeros; with a type among the options the division truncates as C's does. Called with nothing, it returns its
+  # name.
+  #
+  # Raises ArgumentError for another kind of value, an unknown option or two different units or types.
+
+  ##
+  # :method: tb
+  # :call-seq:
+  #   tb(value, *options) -> number
+  #   tb                  -> :tb
+  #
+  # Converts a size to terabytes, in steps of 1024, and shows it. +value+ is in bytes unless a unit says otherwise.
+  #
+  #   tb(1 << 40)           # => 1
+  #   tb(512, gb)           # => 0.5
+  #   tb(0x7F0000000000)    # => 127
+  #   tb(1, :mb)            # => 0.00000095367431640625
+  #
+  # +options+ come in any order and letter case, each as a bare name, a Symbol or a String:
+  #
+  # a unit:: +byte+ +kb+ +mb+ +gb+ +tb+, the unit +value+ is in; also <tt>:megabyte</tt>, <tt>"MiB"</tt> and the like.
+  # a type:: +u8+ to +s64+, +f32+, +f64+, +big+ or a C name. +value+ is converted to it first, as by a C cast.
+  #
+  # A plain Integer is a +u64+, and an integer keeps its type: the product is cut to it as C cuts it. When the
+  # division leaves a remainder the result is a Float instead, shown to 5 places, or to 20 when the first 5 are
+  # zeros; with a type among the options the division truncates as C's does. Called with nothing, it returns its
+  # name.
+  #
+  # Raises ArgumentError for another kind of value, an unknown option or two different units or types.
+
+  UNITS.each do |unit|
+    define_method(unit) do |value = NONE, *options|
+      NONE.equal?(value) ? unit : IrbHelpers.size(unit, unit, value, options)
+    end
+  end
+
+  ##
+  # :method: byte_to_kb
+  # :call-seq: byte_to_kb(value, *options) -> number
+  #
+  # Converts +value+ from bytes to kilobytes: <tt>kb(value, byte)</tt>. +options+ may name a type.
+
+  ##
+  # :method: byte_to_mb
+  # :call-seq: byte_to_mb(value, *options) -> number
+  #
+  # Converts +value+ from bytes to megabytes: <tt>mb(value, byte)</tt>. +options+ may name a type.
+
+  ##
+  # :method: byte_to_gb
+  # :call-seq: byte_to_gb(value, *options) -> number
+  #
+  # Converts +value+ from bytes to gigabytes: <tt>gb(value, byte)</tt>. +options+ may name a type.
+
+  ##
+  # :method: byte_to_tb
+  # :call-seq: byte_to_tb(value, *options) -> number
+  #
+  # Converts +value+ from bytes to terabytes: <tt>tb(value, byte)</tt>. +options+ may name a type.
+
+  ##
+  # :method: kb_to_byte
+  # :call-seq: kb_to_byte(value, *options) -> number
+  #
+  # Converts +value+ from kilobytes to bytes: <tt>byte(value, kb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: kb_to_mb
+  # :call-seq: kb_to_mb(value, *options) -> number
+  #
+  # Converts +value+ from kilobytes to megabytes: <tt>mb(value, kb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: kb_to_gb
+  # :call-seq: kb_to_gb(value, *options) -> number
+  #
+  # Converts +value+ from kilobytes to gigabytes: <tt>gb(value, kb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: kb_to_tb
+  # :call-seq: kb_to_tb(value, *options) -> number
+  #
+  # Converts +value+ from kilobytes to terabytes: <tt>tb(value, kb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: mb_to_byte
+  # :call-seq: mb_to_byte(value, *options) -> number
+  #
+  # Converts +value+ from megabytes to bytes: <tt>byte(value, mb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: mb_to_kb
+  # :call-seq: mb_to_kb(value, *options) -> number
+  #
+  # Converts +value+ from megabytes to kilobytes: <tt>kb(value, mb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: mb_to_gb
+  # :call-seq: mb_to_gb(value, *options) -> number
+  #
+  # Converts +value+ from megabytes to gigabytes: <tt>gb(value, mb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: mb_to_tb
+  # :call-seq: mb_to_tb(value, *options) -> number
+  #
+  # Converts +value+ from megabytes to terabytes: <tt>tb(value, mb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: gb_to_byte
+  # :call-seq: gb_to_byte(value, *options) -> number
+  #
+  # Converts +value+ from gigabytes to bytes: <tt>byte(value, gb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: gb_to_kb
+  # :call-seq: gb_to_kb(value, *options) -> number
+  #
+  # Converts +value+ from gigabytes to kilobytes: <tt>kb(value, gb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: gb_to_mb
+  # :call-seq: gb_to_mb(value, *options) -> number
+  #
+  # Converts +value+ from gigabytes to megabytes: <tt>mb(value, gb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: gb_to_tb
+  # :call-seq: gb_to_tb(value, *options) -> number
+  #
+  # Converts +value+ from gigabytes to terabytes: <tt>tb(value, gb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: tb_to_byte
+  # :call-seq: tb_to_byte(value, *options) -> number
+  #
+  # Converts +value+ from terabytes to bytes: <tt>byte(value, tb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: tb_to_kb
+  # :call-seq: tb_to_kb(value, *options) -> number
+  #
+  # Converts +value+ from terabytes to kilobytes: <tt>kb(value, tb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: tb_to_mb
+  # :call-seq: tb_to_mb(value, *options) -> number
+  #
+  # Converts +value+ from terabytes to megabytes: <tt>mb(value, tb)</tt>. +options+ may name a type.
+
+  ##
+  # :method: tb_to_gb
+  # :call-seq: tb_to_gb(value, *options) -> number
+  #
+  # Converts +value+ from terabytes to gigabytes: <tt>gb(value, tb)</tt>. +options+ may name a type.
+
+  UNITS.permutation(2) do |from, to|
+    name = :"#{from}_to_#{to}"
+    define_method(name) { |value, *options| IrbHelpers.size(name, to, value, [from, *options]) }
   end
 
   # Converts +value+ to +type+ as C's <tt>(type)value</tt> does. +type+ is any name a helper takes as an option:
@@ -807,8 +1079,65 @@ module IrbHelpers
     end
   end
 
+  module Size # :nodoc:
+    SCALES = { kb: %w[kilo kibi], mb: %w[mega mebi], gb: %w[giga gibi], tb: %w[tera tebi] }.freeze
+    SPELLED = SCALES.each_with_object({ 'b' => :byte, 'byte' => :byte, 'bytes' => :byte }) do |(unit, words), table|
+      table[unit.to_s] = table["#{unit[0]}ib"] = unit
+      words.each { |word| table["#{word}byte"] = table["#{word}bytes"] = unit }
+    end.freeze
+
+    def self.pick(name, options)
+      unit = type = nil
+      options.each do |option|
+        if (key = spelled(option))
+          unit = Options.one(name, 'unit', unit, key)
+        else
+          type = Options.one(name, 'type', type, typed(name, option))
+        end
+      end
+      [unit || :byte, type]
+    end
+
+    def self.spelled(option)
+      case option
+      when Symbol, String then SPELLED[option.to_s.scrub.downcase.strip]
+      end
+    end
+
+    def self.typed(name, option)
+      key = Options.resolve(option)
+      return key if TYPES.include?(key)
+
+      raise ArgumentError, "#{name} expects options among #{[*UNITS, *TYPES].join(', ')} or a C type name, " \
+                           "got #{Convert.describe(option)}"
+    end
+
+    def self.scale(name, number, shift, type)
+      number = type ? Convert.cast(type, number) : Convert.default(name, number)
+      case number
+      when Float then type == :f32 ? Rules.single(Math.ldexp(number, shift)) : Math.ldexp(number, shift)
+      when Int then fixed(number, shift, type)
+      else exact(number, shift)
+      end
+    end
+
+    def self.fixed(number, shift, type)
+      return number * (1 << shift) unless shift.negative?
+
+      type || (number % (1 << -shift)).zero? ? number / (1 << -shift) : number.to_i.fdiv(1 << -shift)
+    end
+
+    def self.exact(number, shift)
+      return number << shift unless shift.negative?
+
+      (number % (1 << -shift)).zero? ? number >> -shift : number.fdiv(1 << -shift)
+    end
+  end
+
   module Text # :nodoc:
     def self.render(value, base)
+      return size(value) if base == :size
+
       radix, prefix = BASES.fetch(base)
       case value
       when Float then real(value, radix, prefix)
@@ -826,6 +1155,24 @@ module IrbHelpers
 
       whole, rest = number.abs.divmod(1)
       "#{'-' if (1 / number).negative?}#{whole(whole, radix, prefix)}#{fraction(rest, radix)}"
+    end
+
+    def self.size(value)
+      return value.to_i.to_s unless value.is_a?(Float)
+
+      digits = expand(value) if value.abs < 1e21
+      digits ? "#{'-' if value.negative?}#{digits[0...-20]}#{places(digits[-20..])}" : value.to_s
+    end
+
+    def self.expand(value)
+      scaled = (value.abs.to_r * (10**20)).truncate
+      scaled.to_s.rjust(21, '0') unless scaled.zero? && !value.zero?
+    end
+
+    def self.places(digits)
+      digits = digits[0, 5] unless digits.start_with?('00000')
+      digits = digits.sub(/0+\z/, '')
+      digits.empty? ? digits : ".#{digits}"
     end
 
     def self.fraction(rest, radix)
@@ -849,6 +1196,15 @@ module IrbHelpers
     number = type ? Convert.cast(type, number) : Convert.default(name, number)
     self.shown = [name, base, type]
     puts Text.render(number, base) unless hooked
+    number
+  end
+
+  def self.size(name, unit, value, options)
+    number = Convert.number(name, value)
+    from, type = Size.pick(name, options)
+    number = Size.scale(name, number, 10 * (UNITS.index(from) - UNITS.index(unit)), type)
+    self.shown = [name, :size, (type unless type == :big && number.is_a?(Float))]
+    puts Text.render(number, :size) unless hooked
     number
   end
 

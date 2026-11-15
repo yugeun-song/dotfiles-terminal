@@ -398,6 +398,125 @@ then a stack trace.
 | `sizeof(:hex)` | `** (ArgumentError) sizeof expects a type among u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got :hex` |
 | `hex(1, :u8, :hex, :u16)` | `error: undefined function hex/4 (there is no such import)` |
 
+## Sizes
+
+`byte`, `kb`, `mb`, `gb` and `tb` convert a size to their unit, in steps of 1024.
+
+### To a unit
+
+The value is in bytes.
+
+| Input | Result |
+|---|---|
+| `gb(0x40000000)` | `1` |
+| `mb(0x200000)` | `2` |
+| `kb(4096)` | `4` |
+| `tb(0x7F0000000000)` | `127` |
+| `byte(4096)` | `4096` |
+| `kb("A")` | `0.06347` |
+| `kb(true)` | `0.00097` |
+
+### From a unit
+
+A unit after the value says what the value is in. It is a bare name or a string, in any letter case, short or spelled out.
+
+| Input | Result |
+|---|---|
+| `gb(512, mb)` | `0.5` |
+| `byte(4, gb)` | `4294967296` |
+| `byte(1.5, kb)` | `1536` |
+| `kb(1, gb)` | `1048576` |
+| `tb(512, gb)` | `0.5` |
+| `mb(3, gb)` | `3072` |
+| `tb(5, tb)` | `5` |
+| `gb(512, :megabyte)` | `0.5` |
+| `gb(512, "MiB")` | `0.5` |
+| `gb(512, "megabytes")` | `0.5` |
+| `byte(1, "GiB")` | `1073741824` |
+| `kb(1, "Terabyte")` | `1073741824` |
+| `mb(1048576, "b")` | `1` |
+
+### Both units in the name
+
+`A_to_B(x)` is `B(x, A)`, for each pair of `byte`, `kb`, `mb`, `gb` and `tb`.
+
+| Input | Result |
+|---|---|
+| `mb_to_gb(512)` | `0.5` |
+| `gb_to_byte(4)` | `4294967296` |
+| `kb_to_mb(1536)` | `1.5` |
+| `tb_to_gb(2)` | `2048` |
+| `byte_to_kb(1024)` | `1` |
+| `gb_to_tb(1)` | `0.00097` |
+| `mb_to_kb(3)` | `3072` |
+| `byte_to_tb(1)` | `0.0000000000009094947` |
+| `gb_to_mb(1, u8)` | `1024` |
+
+### A result that is not whole
+
+When the division leaves a remainder the result is a float: shown to 5 places, cut and not rounded, or to 20 when the first 5 are zeros. A whole result has no fraction.
+
+| Input | Result |
+|---|---|
+| `kb(1000)` | `0.97656` |
+| `kb(1025)` | `1.00097` |
+| `mb(0x1234567)` | `18.20444` |
+| `gb(1.5e9)` | `1.39698` |
+| `kb(1023.999999)` | `0.99999` |
+| `mb(1)` | `0.00000095367431640625` |
+| `gb(1)` | `0.00000000093132257461` |
+| `tb(1)` | `0.0000000000009094947` |
+| `gb(0x1000)` | `0.000003814697265625` |
+| `kb(-2049.0)` | `-2.00097` |
+| `kb(1.0e-30)` | `9.765625e-34` |
+| `kb(2048.5 - 0.5)` | `2` |
+
+### In arithmetic
+
+A conversion returns its number, and the result line follows the helper called last.
+
+| Input | Result |
+|---|---|
+| `gb(byte(1024))` | `0.00000095367431640625` |
+| `hex(byte(2, mb))` | `0x200000` |
+| `gb(0x40000000) + 1` | `2` |
+| `mb(1, gb) * 1.5` | `1536` |
+| `bin(kb(4096))` | `0b100` |
+| `dec(gb(1, tb))` | `1024` |
+
+### With a type
+
+A type among the options converts the value first, as a C cast does, and the constant is then multiplied or divided as C would: the division truncates and the product is cut. Without one an integer is a `u64`.
+
+| Input | Result |
+|---|---|
+| `gb(0x1000, u64)` | `0` |
+| `byte(4, gb, u32)` | `0` |
+| `byte(4, tb, u32)` | `4398046511104` |
+| `kb(-2048)` | `18014398509481982` |
+| `kb(-2048, s64)` | `-2` |
+| `kb(-2049, s64)` | `-2` |
+| `kb(200, mb, u8)` | `204800` |
+| `kb(-1, u32)` | `4194303` |
+| `kb(-4096, "int")` | `-4` |
+| `gb(1, f32)` | `0.00000000093132257461` |
+| `gb(0x1000, f64)` | `0.000003814697265625` |
+| `gb(0x1000, big)` | `0.000003814697265625` |
+| `gb(1 <<< 70, big)` | `1099511627776` |
+
+### Errors
+
+| Input | Error |
+|---|---|
+| `gb(1, mb, kb)` | `(ArgumentError) gb takes one unit, got mb and kb` |
+| `mb_to_gb(1, kb)` | `(ArgumentError) mb_to_gb takes one unit, got mb and kb` |
+| `gb(1, hex)` | `(ArgumentError) gb expects options among byte, kb, mb, gb, tb, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got :hex` |
+| `gb(1, u16, s8)` | `(ArgumentError) gb takes one type, got u16 and s8` |
+| `gb(nil)` | `(ArgumentError) gb expects an integer, float, boolean, or single character, got nil` |
+| `gb("AB")` | `(ArgumentError) gb expects a single character, got "AB" (2 code points)` |
+| `hex(1, mb)` | `(ArgumentError) hex expects options among bin, oct, dec, hex, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got :mb` |
+| `gb(1, "furlong")` | `(ArgumentError) gb expects options among byte, kb, mb, gb, tb, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got "furlong"` |
+
 ## A helper without a value
 
 Called with nothing, a helper returns its name. That is how a bare `u16` or `hex` works as an option.

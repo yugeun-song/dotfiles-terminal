@@ -33,6 +33,18 @@ unless Code.ensure_loaded?(IExHelpers) do
     @words %{"signed" => 1, "unsigned" => 1, "char" => 1, "short" => 1, "int" => 1, "long" => 2}
     @apart [~w(signed unsigned), ~w(char short long), ~w(char int)]
     @sizes %{"char" => 8, "short" => 16, "long" => 64}
+    @units [:byte, :kb, :mb, :gb, :tb]
+    @spelled for {unit, words} <- [
+                   kb: ~w(kilo kibi),
+                   mb: ~w(mega mebi),
+                   gb: ~w(giga gibi),
+                   tb: ~w(tera tebi)
+                 ],
+                 text <-
+                   [Atom.to_string(unit), String.first(Atom.to_string(unit)) <> "ib"] ++
+                     Enum.flat_map(words, &[&1 <> "byte", &1 <> "bytes"]),
+                 into: %{"b" => :byte, "byte" => :byte, "bytes" => :byte},
+                 do: {text, unit}
     @shown {__MODULE__, :shown}
 
     for name <- @names do
@@ -47,6 +59,25 @@ unless Code.ensure_loaded?(IExHelpers) do
 
     for name <- @types do
       def unquote(name)(value), do: to(unquote(name), number(unquote(name), value))
+    end
+
+    for unit <- @units do
+      def unquote(unit)(), do: unquote(unit)
+      def unquote(unit)(value), do: size(unquote(unit), unquote(unit), value, [])
+
+      def unquote(unit)(value, option),
+        do: size(unquote(unit), unquote(unit), value, [option])
+
+      def unquote(unit)(value, option, other),
+        do: size(unquote(unit), unquote(unit), value, [option, other])
+    end
+
+    for from <- @units, to <- @units, from != to do
+      name = :"#{from}_to_#{to}"
+      def unquote(name)(value), do: size(unquote(name), unquote(to), value, [unquote(from)])
+
+      def unquote(name)(value, option),
+        do: size(unquote(name), unquote(to), value, [unquote(from), option])
     end
 
     def cast(type, value), do: to(type("cast", type), number("cast", value))
@@ -106,6 +137,88 @@ unless Code.ensure_loaded?(IExHelpers) do
       end
 
       number
+    end
+
+    defp size(name, unit, value, options) do
+      number = number(name, value)
+      {from, type} = units(name, options)
+
+      shift =
+        10 * (Enum.find_index(@units, &(&1 == from)) - Enum.find_index(@units, &(&1 == unit)))
+
+      {number, type} = scale(name, number, shift, type)
+
+      case Process.get(@shown) do
+        nil -> IO.puts(render(number, :size, type))
+        _ -> Process.put(@shown, {name, :size, type})
+      end
+
+      number
+    end
+
+    defp units(name, options) do
+      {unit, type} =
+        Enum.reduce(options, {nil, nil}, fn option, {unit, type} ->
+          spelled = spelled(option)
+          key = spelled || named(option)
+
+          cond do
+            spelled ->
+              {one(name, "unit", unit, key), type}
+
+            key in @types ->
+              {unit, one(name, "type", type, key)}
+
+            true ->
+              raise ArgumentError,
+                    "#{name} expects options among #{Enum.join(@units ++ @types, ", ")} " <>
+                      "or a C type name, got #{describe(option)}"
+          end
+        end)
+
+      {unit || :byte, type}
+    end
+
+    defp spelled(option) when is_binary(option) or (is_atom(option) and not is_nil(option)) do
+      text = to_string(option)
+      if String.valid?(text), do: @spelled[text |> String.downcase() |> String.trim()]
+    end
+
+    defp spelled(_option), do: nil
+
+    defp scale(name, number, shift, type) when type in [nil, :f32, :f64] and is_float(number),
+      do: {scaled(name, to(type || :f64, number), shift, type || :f64), type}
+
+    defp scale(name, number, shift, type) when type in [:f32, :f64],
+      do: {scaled(name, to(type, number), shift, type), type}
+
+    defp scale(name, number, shift, type) when type in [nil, :big] do
+      keep = if type, do: &trunc/1, else: &convert(name, &1, nil)
+      number = keep.(number)
+
+      cond do
+        shift >= 0 and type -> {number <<< shift, type}
+        shift >= 0 -> {wrap(number <<< shift, 64, false), type}
+        (number &&& (1 <<< -shift) - 1) == 0 -> {number >>> -shift, type}
+        true -> {number / (1 <<< -shift), nil}
+      end
+    end
+
+    defp scale(_name, number, shift, type) do
+      {bits, signed} = @ints[type]
+      wide = max(max(bits, 32), if(abs(shift) > 30, do: 64, else: 32))
+      signed = signed or bits < 32 or wide > bits
+      number = wrap(to(type, number), wide, signed)
+      factor = 1 <<< abs(shift)
+      result = if shift < 0, do: Kernel.div(number, factor), else: number * factor
+      {wrap(result, wide, signed), :"#{if signed, do: "s", else: "u"}#{wide}"}
+    end
+
+    defp scaled(name, number, shift, type) do
+      to(type, number * :math.pow(2, shift))
+    rescue
+      ArithmeticError ->
+        reraise ArgumentError, "#{name}: #{type} cannot hold the result", __STACKTRACE__
     end
 
     defp pick(name, options) do
@@ -258,6 +371,37 @@ unless Code.ensure_loaded?(IExHelpers) do
     defp wrap(number, bits, signed) do
       low = number &&& (1 <<< bits) - 1
       if signed and low >= 1 <<< (bits - 1), do: low - (1 <<< bits), else: low
+    end
+
+    defp render(value, :size, _type) when is_integer(value), do: Integer.to_string(value)
+
+    defp render(value, :size, _type) do
+      <<_sign::1, exponent::11, fraction::52>> = <<value::float>>
+
+      {whole, power} =
+        if exponent == 0, do: {fraction, -1074}, else: {fraction + (1 <<< 52), exponent - 1075}
+
+      scaled =
+        if power < 0,
+          do: Kernel.div(whole * 10 ** 20, 1 <<< -power),
+          else: (whole <<< power) * 10 ** 20
+
+      {digits, places} =
+        scaled |> Integer.to_string() |> String.pad_leading(21, "0") |> String.split_at(-20)
+
+      places =
+        if String.starts_with?(places, "00000"), do: places, else: String.slice(places, 0, 5)
+
+      cond do
+        (scaled == 0 and value != 0) or abs(value) >= 1.0e21 ->
+          inspect(value)
+
+        String.trim_trailing(places, "0") == "" ->
+          if(value < 0, do: "-", else: "") <> digits
+
+        true ->
+          if(value < 0, do: "-", else: "") <> digits <> "." <> String.trim_trailing(places, "0")
+      end
     end
 
     defp render(value, base, _type) when is_float(value) do

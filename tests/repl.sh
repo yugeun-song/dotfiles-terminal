@@ -152,6 +152,11 @@ if command -v irb >/dev/null 2>&1; then
     t 'hex(nil)' '~hex expects an integer, float, boolean, or single character, got nil'
     t 'hex(Float::NAN)' '~hex expects a finite number, got NaN \(RangeError\)'
     t 'hex(1, BasicObject.new)' '~hex expects options among'
+    t 'gb(512, mb)' '0.5'
+    t 'hex(byte(2, mb))' '0x200000'
+    t 'gb(byte(1024))' '0.00000095367431640625'
+    t 'kb(-2049, s64)' '-2'
+    t 'x = mb_to_kb(3); x + 1' '3073'
     irb_session irb
     documented irb
     irb_session 'irb, as documented'
@@ -211,6 +216,9 @@ if command -v iex >/dev/null 2>&1; then
     t 'f32(1.0e39)' '~f32 cannot hold 1.0e39'
     t 'respawn()' '~^Interactive Elixir [^|]*$'
     t 'hex(255)' '0xFF'
+    t 'gb(512, mb)' '0.5'
+    t 'hex(byte(2, mb))' '0x200000'
+    t 'kb(-2049, s64)' '-2'
     iex_session iex "$WORK/iex.exs"
     documented iex
     iex_session 'iex, as documented' "$WORK/iex.exs"
@@ -258,6 +266,9 @@ if command -v node >/dev/null 2>&1; then
     t 'hex(1, u8, u16)' '~hex\(\) takes one type, got u8 and u16'
     t 'hex(NaN)' '~RangeError: hex\(\) expects a finite number, got NaN'
     t 'u8(1, 2)' '~u8\(\) takes one value, got 2'
+    t 'gb(512, mb)' '0.5'
+    t 'hex(byte(2, mb))' '0x200000'
+    t 'kb(-2049, s64)' '-2n'
     node_session node "--require $WORK/repl.js"
     documented node
     node_session 'node, as documented' "--require $WORK/repl.js"
@@ -313,6 +324,9 @@ if command -v luajit >/dev/null 2>&1; then
     t '=hex(1, u8, u16)' '~hex takes one type, got u8 and u16'
     t '=hex(0/0)' '~hex expects a finite number, got -?nan'
     t '=u8(1, 2)' '~u8 takes one value, got 2'
+    t '=gb(512, mb)' '0.5'
+    t '=hex(byte(2, mb))' '0x200000'
+    t '=kb(-2049, s64)' '-2'
     luajit_session luajit "$init"
     documented luajit
     luajit_session 'luajit, as documented' "$init"
