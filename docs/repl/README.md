@@ -51,6 +51,8 @@ fails the checks.
 A whole result is shown with no fraction. When the division leaves a remainder the result is a float, shown
 to 5 places, or to 20 when the first 5 are zeros. A unit can be spelled out: `"megabyte"`, `"MiB"`.
 
+A helper reads its value in bytes, whatever returned it: `kb(gb(2))` is not 2 gigabytes in kilobytes, `kb(2, gb)` is.
+
 ## The types
 
 The sizes are those of x86-64 Linux, where `char` is signed.
