@@ -32,23 +32,23 @@ statement's value once, in the base of the helper called last; arithmetic after 
 
 ## A base as an option
 
-A base name after the value shows the value in that base instead of the helper's own. It is written bare, or
-as a constant or a string, in any letter case.
+A base name after the value shows the value in that base instead of the helper's own. It is written as a
+Symbol or a string, in any letter case.
 
 | Input | Result |
 |---|---|
-| `bin(5, hex)` | `0x5` |
-| `hex(5, bin)` | `0b101` |
-| `dec(255, oct)` | `0o377` |
-| `oct(8, dec)` | `8` |
+| `bin(5, :hex)` | `0x5` |
+| `hex(5, :bin)` | `0b101` |
+| `dec(255, :oct)` | `0o377` |
+| `oct(8, :dec)` | `8` |
 | `hex(255, :bin)` | `0b11111111` |
 | `hex(255, "bin")` | `0b11111111` |
 | `hex(255, "BIN")` | `0b11111111` |
 | `hex(255, " bin ")` | `0b11111111` |
-| `hex(5, hex)` | `0x5` |
-| `hex(5, bin, bin)` | `0b101` |
-| `hex(-1, u8, bin)` | `0b11111111` |
-| `hex(-1, bin, u8)` | `0b11111111` |
+| `hex(5, :hex)` | `0x5` |
+| `hex(5, :bin, :bin)` | `0b101` |
+| `hex(-1, :u8, :bin)` | `0b11111111` |
+| `hex(-1, :bin, :u8)` | `0b11111111` |
 
 ## With no type: u64
 
@@ -83,47 +83,46 @@ Each cell is the result line of the call in its column header, with `TYPE` repla
 
 | TYPE | `hex(-200, TYPE)` | `dec(-200, TYPE)` | `oct(-200, TYPE)` | `bin(-200, TYPE)` |
 |---|---|---|---|---|
-| `u8` | `0x38` | `56` | `0o70` | `0b111000` |
-| `s8` | `0x38` | `56` | `0o70` | `0b111000` |
-| `u16` | `0xFF38` | `65336` | `0o177470` | `0b1111111100111000` |
-| `s16` | `0xFF38` | `-200` | `0o177470` | `0b1111111100111000` |
-| `u32` | `0xFFFFFF38` | `4294967096` | `0o37777777470` | `0b11111111111111111111111100111000` |
-| `s32` | `0xFFFFFF38` | `-200` | `0o37777777470` | `0b11111111111111111111111100111000` |
-| `u64` | `0xFFFFFFFFFFFFFF38` | `18446744073709551416` | `0o1777777777777777777470` | `0b1111111111111111111111111111111111111111111111111111111100111000` |
-| `s64` | `0xFFFFFFFFFFFFFF38` | `-200` | `0o1777777777777777777470` | `0b1111111111111111111111111111111111111111111111111111111100111000` |
-| `f32` | `-0xC8` | `-200.0` | `-0o310` | `-0b11001000` |
-| `f64` | `-0xC8` | `-200.0` | `-0o310` | `-0b11001000` |
-| `big` | `-0xC8` | `-200` | `-0o310` | `-0b11001000` |
+| `:u8` | `0x38` | `56` | `0o70` | `0b111000` |
+| `:s8` | `0x38` | `56` | `0o70` | `0b111000` |
+| `:u16` | `0xFF38` | `65336` | `0o177470` | `0b1111111100111000` |
+| `:s16` | `0xFF38` | `-200` | `0o177470` | `0b1111111100111000` |
+| `:u32` | `0xFFFFFF38` | `4294967096` | `0o37777777470` | `0b11111111111111111111111100111000` |
+| `:s32` | `0xFFFFFF38` | `-200` | `0o37777777470` | `0b11111111111111111111111100111000` |
+| `:u64` | `0xFFFFFFFFFFFFFF38` | `18446744073709551416` | `0o1777777777777777777470` | `0b1111111111111111111111111111111111111111111111111111111100111000` |
+| `:s64` | `0xFFFFFFFFFFFFFF38` | `-200` | `0o1777777777777777777470` | `0b1111111111111111111111111111111111111111111111111111111100111000` |
+| `:f32` | `-0xC8` | `-200.0` | `-0o310` | `-0b11001000` |
+| `:f64` | `-0xC8` | `-200.0` | `-0o310` | `-0b11001000` |
+| `:big` | `-0xC8` | `-200` | `-0o310` | `-0b11001000` |
 
 | TYPE | `hex(0x123456789, TYPE)` | `dec(0x123456789, TYPE)` | `oct(0x123456789, TYPE)` | `bin(0x123456789, TYPE)` |
 |---|---|---|---|---|
-| `u8` | `0x89` | `137` | `0o211` | `0b10001001` |
-| `s8` | `0x89` | `-119` | `0o211` | `0b10001001` |
-| `u16` | `0x6789` | `26505` | `0o63611` | `0b110011110001001` |
-| `s16` | `0x6789` | `26505` | `0o63611` | `0b110011110001001` |
-| `u32` | `0x23456789` | `591751049` | `0o4321263611` | `0b100011010001010110011110001001` |
-| `s32` | `0x23456789` | `591751049` | `0o4321263611` | `0b100011010001010110011110001001` |
-| `u64` | `0x123456789` | `4886718345` | `0o44321263611` | `0b100100011010001010110011110001001` |
-| `s64` | `0x123456789` | `4886718345` | `0o44321263611` | `0b100100011010001010110011110001001` |
-| `f32` | `0x123456800` | `4886718464.0` | `0o44321264000` | `0b100100011010001010110100000000000` |
-| `f64` | `0x123456789` | `4886718345.0` | `0o44321263611` | `0b100100011010001010110011110001001` |
-| `big` | `0x123456789` | `4886718345` | `0o44321263611` | `0b100100011010001010110011110001001` |
+| `:u8` | `0x89` | `137` | `0o211` | `0b10001001` |
+| `:s8` | `0x89` | `-119` | `0o211` | `0b10001001` |
+| `:u16` | `0x6789` | `26505` | `0o63611` | `0b110011110001001` |
+| `:s16` | `0x6789` | `26505` | `0o63611` | `0b110011110001001` |
+| `:u32` | `0x23456789` | `591751049` | `0o4321263611` | `0b100011010001010110011110001001` |
+| `:s32` | `0x23456789` | `591751049` | `0o4321263611` | `0b100011010001010110011110001001` |
+| `:u64` | `0x123456789` | `4886718345` | `0o44321263611` | `0b100100011010001010110011110001001` |
+| `:s64` | `0x123456789` | `4886718345` | `0o44321263611` | `0b100100011010001010110011110001001` |
+| `:f32` | `0x123456800` | `4886718464.0` | `0o44321264000` | `0b100100011010001010110100000000000` |
+| `:f64` | `0x123456789` | `4886718345.0` | `0o44321263611` | `0b100100011010001010110011110001001` |
+| `:big` | `0x123456789` | `4886718345` | `0o44321263611` | `0b100100011010001010110011110001001` |
 
 ### Spelling a type
 
-A type is written bare, as a constant or as a string; letter case and the space around it do not matter, and
+A type is written as a Symbol or as a string; letter case and the space around it do not matter, and
 naming the same type twice is not a conflict.
 
 | Input | Result |
 |---|---|
-| `hex(-1, u16)` | `0xFFFF` |
 | `hex(-1, :u16)` | `0xFFFF` |
 | `hex(-1, "u16")` | `0xFFFF` |
 | `hex(-1, "U16")` | `0xFFFF` |
 | `hex(-1, " u16 ")` | `0xFFFF` |
 | `hex(-1, :U16)` | `0xFFFF` |
-| `hex(-1, u16, :u16)` | `0xFFFF` |
-| `hex(-1, u16, :uint16_t)` | `0xFFFF` |
+| `hex(-1, :u16, "u16")` | `0xFFFF` |
+| `hex(-1, :u16, :uint16_t)` | `0xFFFF` |
 
 ### C type names
 
@@ -231,15 +230,15 @@ constant it would be in C and a Float as a `double`.
 |---|---|
 | `cast(:int, 0xFFFFFFFF)` | `-1` |
 | `cast("unsigned char", 300)` | `44` |
-| `cast(u16, 0x12345)` | `9029` |
+| `cast(:u16, 0x12345)` | `9029` |
 | `cast(:size_t, -1)` | `18446744073709551615` |
 | `cast(:float, 0.1)` | `0.10000000149011612` |
 | `cast(:double, 1)` | `1.0` |
-| `cast(big, 3.9)` | `3` |
+| `cast(:big, 3.9)` | `3` |
 | `sizeof(:int)` | `4` |
-| `sizeof(u8)` | `1` |
+| `sizeof(:u8)` | `1` |
 | `sizeof("unsigned long")` | `8` |
-| `sizeof(f32)` | `4` |
+| `sizeof(:f32)` | `4` |
 | `sizeof(u8(1))` | `1` |
 | `sizeof(u8(1) + u8(1))` | `4` |
 | `sizeof(5)` | `4` |
@@ -454,15 +453,15 @@ precision; an integer type drops the fraction.
 | `hex(-0.0)` | `-0x0` |
 | `hex(255.0)` | `0xFF` |
 | `hex(2.5) * 2` | `0x5` |
-| `hex(1.5, f32)` | `0x1.8` |
-| `hex(0.1, f32)` | `0x0.199999A` |
-| `hex(0.1, f64)` | `0x0.1999999999999A` |
-| `dec(0.1, f32)` | `0.10000000149011612` |
-| `hex(255, f32)` | `0xFF` |
-| `hex(1.5, u8)` | `0x1` |
-| `hex(-1.5, u8)` | `0xFF` |
-| `hex(1.5, big)` | `0x1` |
-| `hex(1e39, f32)` | `Infinity` |
+| `hex(1.5, :f32)` | `0x1.8` |
+| `hex(0.1, :f32)` | `0x0.199999A` |
+| `hex(0.1, :f64)` | `0x0.1999999999999A` |
+| `dec(0.1, :f32)` | `0.10000000149011612` |
+| `hex(255, :f32)` | `0xFF` |
+| `hex(1.5, :u8)` | `0x1` |
+| `hex(-1.5, :u8)` | `0xFF` |
+| `hex(1.5, :big)` | `0x1` |
+| `hex(1e39, :f32)` | `Infinity` |
 
 ### Single precision
 
@@ -512,9 +511,9 @@ there is none.
 | `hex(1 << 64)` | `hex: the value is wider than 64 bits and was cut to the low 64; pass :big to keep all of it`<br>`0x0` |
 | `hex((1 << 64) + 5)` | `hex: the value is wider than 64 bits and was cut to the low 64; pass :big to keep all of it`<br>`0x5` |
 | `dec(-(1 << 64))` | `dec: the value is wider than 64 bits and was cut to the low 64; pass :big to keep all of it`<br>`0` |
-| `hex(1 << 64, big)` | `0x10000000000000000` |
-| `hex(1 << 64, u64)` | `0x0` |
-| `hex(1 << 100, u8)` | `0x0` |
+| `hex(1 << 64, :big)` | `0x10000000000000000` |
+| `hex(1 << 64, :u64)` | `0x0` |
+| `hex(1 << 100, :u8)` | `0x0` |
 | `u64(1 << 64)` | `0` |
 | `hex(hex(1 << 100) + 1)` | `hex: the value is wider than 64 bits and was cut to the low 64; pass :big to keep all of it`<br>`0x1` |
 | `hex(u64(-1) + 1)` | `0x0` |
@@ -561,22 +560,22 @@ after the place that raised it and before a backtrace.
 | `hex(1, "long double")` | `hex expects options among bin, oct, dec, hex, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got "long double" (ArgumentError)` |
 | `hex(1, "")` | `hex expects options among bin, oct, dec, hex, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got "" (ArgumentError)` |
 | `hex(1, "int int")` | `hex expects options among bin, oct, dec, hex, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got "int int" (ArgumentError)` |
-| `hex(1, u8, u16)` | `hex takes one type, got u8 and u16 (ArgumentError)` |
-| `hex(1, bin, oct)` | `hex takes one base, got bin and oct (ArgumentError)` |
+| `hex(1, :u8, :u16)` | `hex takes one type, got u8 and u16 (ArgumentError)` |
+| `hex(1, :bin, :oct)` | `hex takes one base, got bin and oct (ArgumentError)` |
 | `hex(1, :int, :long)` | `hex takes one type, got s32 and s64 (ArgumentError)` |
-| `hex(1, u8, bin, s8)` | `hex takes one type, got u8 and s8 (ArgumentError)` |
+| `hex(1, :u8, :bin, :s8)` | `hex takes one type, got u8 and s8 (ArgumentError)` |
 | `hex(1, BasicObject.new)` | `hex expects options among bin, oct, dec, hex, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got an object that cannot be inspected (ArgumentError)` |
 
 ### The type functions, cast and sizeof
 
 | Input | Error |
 |---|---|
-| `u8(1, 2)` | `wrong number of arguments (given 2, expected 0..1) (ArgumentError)` |
+| `u8(1, 2)` | `u8 takes one value, got 2 (ArgumentError)` |
 | `cast(:hex, 1)` | `cast expects a type among u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got :hex (ArgumentError)` |
 | `cast(:foo, 1)` | `cast expects a type among u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got :foo (ArgumentError)` |
 | `cast(:int)` | `wrong number of arguments (given 1, expected 2) (ArgumentError)` |
 | `cast(:int, "AB")` | `cast expects a single character, got "AB" (2 code points) (ArgumentError)` |
-| `sizeof(big)` | `sizeof expects a type with a size, got big (ArgumentError)` |
+| `sizeof(:big)` | `sizeof expects a type with a size, got big (ArgumentError)` |
 | `sizeof(nil)` | `sizeof expects a type among u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got nil (ArgumentError)` |
 | `sizeof(:foo)` | `sizeof expects a type among u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got :foo (ArgumentError)` |
 | `sizeof(:hex)` | `sizeof expects a type among u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got :hex (ArgumentError)` |
@@ -620,17 +619,17 @@ The value is in bytes.
 
 ### From a unit
 
-A unit after the value says what the value is in. It is a bare name or a string, in any letter case, short or spelled out.
+A unit after the value says what the value is in. It is a Symbol or a string, in any letter case, short or spelled out.
 
 | Input | Result |
 |---|---|
-| `gb(512, mb)` | `0.5` |
-| `byte(4, gb)` | `4294967296` |
-| `byte(1.5, kb)` | `1536` |
-| `kb(1, gb)` | `1048576` |
-| `tb(512, gb)` | `0.5` |
-| `mb(3, gb)` | `3072` |
-| `tb(5, tb)` | `5` |
+| `gb(512, :mb)` | `0.5` |
+| `byte(4, :gb)` | `4294967296` |
+| `byte(1.5, :kb)` | `1536` |
+| `kb(1, :gb)` | `1048576` |
+| `tb(512, :gb)` | `0.5` |
+| `mb(3, :gb)` | `3072` |
+| `tb(5, :tb)` | `5` |
 | `gb(512, :megabyte)` | `0.5` |
 | `gb(512, "MiB")` | `0.5` |
 | `gb(512, "megabytes")` | `0.5` |
@@ -640,7 +639,7 @@ A unit after the value says what the value is in. It is a bare name or a string,
 
 ### Both units in the name
 
-`A_to_B(x)` is `B(x, A)`, for each pair of `byte`, `kb`, `mb`, `gb` and `tb`.
+`A_to_B(x)` is `B(x, :A)`, for each pair of `byte`, `kb`, `mb`, `gb` and `tb`.
 
 | Input | Result |
 |---|---|
@@ -652,7 +651,7 @@ A unit after the value says what the value is in. It is a bare name or a string,
 | `gb_to_tb(1)` | `0.00097` |
 | `mb_to_kb(3)` | `3072` |
 | `byte_to_tb(1)` | `0.0000000000009094947` |
-| `gb_to_mb(1, u8)` | `1024` |
+| `gb_to_mb(1, :u8)` | `1024` |
 
 ### A result that is not whole
 
@@ -680,11 +679,11 @@ A conversion returns its number, and the result line follows the helper called l
 | Input | Result |
 |---|---|
 | `gb(byte(1024))` | `0.00000095367431640625` |
-| `hex(byte(2, mb))` | `0x200000` |
+| `hex(byte(2, :mb))` | `0x200000` |
 | `gb(0x40000000) + 1` | `2` |
-| `mb(1, gb) * 1.5` | `1536` |
+| `mb(1, :gb) * 1.5` | `1536` |
 | `bin(kb(4096))` | `0b100` |
-| `dec(gb(1, tb))` | `1024` |
+| `dec(gb(1, :tb))` | `1024` |
 
 ### A unit in a base helper
 
@@ -692,12 +691,12 @@ A conversion returns its number, and the result line follows the helper called l
 
 | Input | Result |
 |---|---|
-| `hex(4, gb)` | `0x100000000` |
-| `hex(1, mb)` | `0x100000` |
-| `bin(1, kb)` | `0b10000000000` |
-| `hex(1.5, kb)` | `0x600` |
-| `hex(4, gb, u32)` | `0x0` |
-| `hex(1, mb, bin)` | `0b100000000000000000000` |
+| `hex(4, :gb)` | `0x100000000` |
+| `hex(1, :mb)` | `0x100000` |
+| `bin(1, :kb)` | `0b10000000000` |
+| `hex(1.5, :kb)` | `0x600` |
+| `hex(4, :gb, :u32)` | `0x0` |
+| `hex(1, :mb, :bin)` | `0b100000000000000000000` |
 
 ### With a type
 
@@ -705,49 +704,54 @@ A type among the options converts the value first, as a C cast does, and the con
 
 | Input | Result |
 |---|---|
-| `gb(0x1000, u64)` | `0` |
-| `byte(4, gb, u32)` | `0` |
-| `byte(4, tb, u32)` | `4398046511104` |
+| `gb(0x1000, :u64)` | `0` |
+| `byte(4, :gb, :u32)` | `0` |
+| `byte(4, :tb, :u32)` | `4398046511104` |
 | `kb(-2048)` | `18014398509481982` |
-| `kb(-2048, s64)` | `-2` |
-| `kb(-2049, s64)` | `-2` |
-| `kb(200, mb, u8)` | `204800` |
-| `kb(-1, u32)` | `4194303` |
+| `kb(-2048, :s64)` | `-2` |
+| `kb(-2049, :s64)` | `-2` |
+| `kb(200, :mb, :u8)` | `204800` |
+| `kb(-1, :u32)` | `4194303` |
 | `kb(-4096, "int")` | `-4` |
-| `gb(1, f32)` | `0.00000000093132257461` |
-| `gb(0x1000, f64)` | `0.000003814697265625` |
-| `gb(0x1000, big)` | `0.000003814697265625` |
-| `gb(1 << 70, big)` | `1099511627776` |
+| `gb(1, :f32)` | `0.00000000093132257461` |
+| `gb(0x1000, :f64)` | `0.000003814697265625` |
+| `gb(0x1000, :big)` | `0.000003814697265625` |
+| `gb(1 << 70, :big)` | `1099511627776` |
 | `gb(u64(0x1000))` | `0.000003814697265625` |
-| `byte(u32(4), gb)` | `0` |
+| `byte(u32(4), :gb)` | `0` |
 | `kb(s32(-4096))` | `-4` |
 | `kb(s32(-4097))` | `-4.00097` |
-| `kb(u8(200), mb)` | `204800` |
+| `kb(u8(200), :mb)` | `204800` |
 
 ### Errors
 
 | Input | Error |
 |---|---|
-| `gb(1, mb, kb)` | `gb takes one unit, got mb and kb` |
-| `mb_to_gb(1, kb)` | `mb_to_gb takes one unit, got mb and kb` |
-| `hex(1, mb, kb)` | `hex takes one unit, got mb and kb` |
-| `gb(1, hex)` | `gb expects options among byte, kb, mb, gb, tb, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got :hex` |
-| `gb(1, u16, s8)` | `gb takes one type, got u16 and s8` |
+| `gb(1, :mb, :kb)` | `gb takes one unit, got mb and kb` |
+| `mb_to_gb(1, :kb)` | `mb_to_gb takes one unit, got mb and kb` |
+| `hex(1, :mb, :kb)` | `hex takes one unit, got mb and kb` |
+| `gb(1, :hex)` | `gb expects options among byte, kb, mb, gb, tb, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got :hex` |
+| `gb(1, :u16, :s8)` | `gb takes one type, got u16 and s8` |
 | `gb(nil)` | `gb expects an integer, float, boolean, or single character, got nil` |
 | `gb("AB")` | `gb expects a single character, got "AB" (2 code points)` |
 | `gb(1, "furlong")` | `gb expects options among byte, kb, mb, gb, tb, u8, s8, u16, s16, u32, s32, u64, s64, f32, f64, big or a C type name, got "furlong"` |
 
 ## A helper without a value
 
-Called with nothing, a helper returns its name. That is how a bare `u16` or `hex` works as an option.
+Called with nothing, a helper is an error, so a bare name does not work as an option: write `:u16`, `:hex`
+or `:gb`.
 
-| Input | Result |
+| Input | Error |
 |---|---|
-| `hex` | `:hex` |
-| `u16` | `:u16` |
-| `hex()` | `:hex` |
-| `[bin, oct, dec, hex]` | `[:bin, :oct, :dec, :hex]` |
-| `big` | `:big` |
+| `hex` | `hex expects a value; write :hex to name the base (ArgumentError)` |
+| `hex()` | `hex expects a value; write :hex to name the base (ArgumentError)` |
+| `u16` | `u16 expects a value; write :u16 to name the type (ArgumentError)` |
+| `gb` | `gb expects a value; write :gb to name the unit (ArgumentError)` |
+| `bin(5, hex)` | `hex expects a value; write :hex to name the base (ArgumentError)` |
+| `hex(-1, u16)` | `u16 expects a value; write :u16 to name the type (ArgumentError)` |
+| `kb(2, gb)` | `gb expects a value; write :gb to name the unit (ArgumentError)` |
+| `sizeof(u8)` | `u8 expects a value; write :u8 to name the type (ArgumentError)` |
+| `cast(big, 3.9)` | `big expects a value; write :big to name the type (ArgumentError)` |
 
 ## Without the REPL's hooks
 

@@ -26,7 +26,8 @@ fails the checks.
   shows the statement's value once, in the base of the helper called last.
 - With no type written, a number is a `u64`.
 - A type after the value converts it as a C cast does: `hex(x, u16)`. A base there changes the base:
-  `hex(x, bin)`. Options come in any order and letter case.
+  `hex(x, bin)`. Options come in any order and letter case. irb and IEx take an option with a colon,
+  `hex(x, :u16)`, and a bare name is an error there.
 - The type names are functions that convert, `u16(x)`, beside `cast(type, x)` for any spelling of a type and
   `sizeof` for a type or a value.
 - A float keeps its fraction, `true` and `false` are 1 and 0, and a string of one character is its code point.
@@ -75,7 +76,7 @@ A C name with several words takes them in any order, with or without `int`, as C
 
 | | irb | IEx | node | LuaJIT | cnum |
 |---|---|---|---|---|---|
-| A type as an option | `u16`, `:u16`, `"u16"` | `u16`, `:u16`, `"u16"` | `u16`, `"u16"` | `u16`, `"u16"` | `u16`, `unsigned short` |
+| A type as an option | `:u16`, `"u16"` | `:u16`, `"u16"` | `u16`, `"u16"` | `u16`, `"u16"` | `u16`, `unsigned short` |
 | A conversion returns | a typed value | an integer | a number, or a BigInt for 64 bits | a typed value | a typed value |
 | Arithmetic on the result | C's rules | Elixir's | JavaScript's | C's rules | C's rules |
 | A 64-bit value is written | as any Integer | as any integer | `0x...n` | `0x...ULL` | as any constant, or with `ull` |

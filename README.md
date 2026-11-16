@@ -173,14 +173,15 @@ Arch cross gdb whose package lags gdb-common still starts it.
 `bin`, `oct`, `dec` and `hex` return their number, so they nest in arithmetic,
 and the result line shows the statement's value once, in the base called
 last. Numbers follow C on x86-64 Linux (GCC, LP64): with no type a value is a
-`u64`, and a type after it converts as a cast does, `hex(x, u16)`, `:u16` in
-IEx and irb, or a C name such as `"unsigned long"`: `u8` to `u64`, `s8` to
-`s64`, `f32`, `f64`, and `big` for no width. Those names are functions too,
-beside `cast(type, x)` and `sizeof`. In irb and LuaJIT a converted value
-keeps its type and computes by C's rules (promotion, wrapping, truncating
-division); IEx and node cannot change their operators, so there it is a plain
-number, cut where it was converted. `byte`, `kb`, `mb`, `gb` and `tb` convert
-sizes in steps of 1024: `gb(x)` from bytes, `gb(512, mb)`, `mb_to_gb(512)`.
+`u64`, and a type after it converts as a cast does, `hex(x, u16)`, or a C
+name such as `"unsigned long"`: `u8` to `u64`, `s8` to `s64`, `f32`, `f64`,
+and `big` for no width. IEx and irb take an option with a colon only,
+`hex(x, :u16)`. Those names are functions too, beside `cast(type, x)` and
+`sizeof`. In irb and LuaJIT a converted value keeps its type and computes by
+C's rules (promotion, wrapping, truncating division); IEx and node cannot
+change their operators, so there it is a plain number, cut where it was
+converted. `byte`, `kb`, `mb`, `gb` and `tb` convert sizes in steps of 1024:
+`gb(x)` from bytes, `gb(512, mb)`, `mb_to_gb(512)`.
 
 `cnum` is a calculator of its own, written in Racket (it needs `racket`): the
 same helpers under C's own syntax, where `-7 / 2` is -3, `(unsigned char)300`

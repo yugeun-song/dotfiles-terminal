@@ -5,6 +5,9 @@ unless Code.ensure_loaded?(IExHelpers) do
 
     Elixir's operators cannot be changed, so a conversion cuts where it is called and returns a
     plain number. The result line shows the statement's value once, in the base called last.
+
+    An option is an atom or a string, `hex(x, :u16)`. A bare `u16` there is an error: it is the
+    function, called with no value.
     """
     import Bitwise
 
@@ -52,19 +55,22 @@ unless Code.ensure_loaded?(IExHelpers) do
                  do: {text, unit}
     @shown {__MODULE__, :shown}
 
-    for name <- @names do
-      @doc "Its own name, so that `hex(x, #{name})` can name it as an option."
-      def unquote(name)(), do: unquote(name)
+    for {kind, names} <- [base: Keyword.keys(@bases), type: @types, unit: @units],
+        name <- names do
+      message = "#{name} expects a value; write :#{name} to name the #{kind}"
+
+      @doc false
+      def unquote(name)(), do: raise(ArgumentError, unquote(message))
     end
 
     for {name, {radix, prefix}} <- @bases do
       @doc """
       Shows `value` in base #{radix}#{if prefix != "", do: ", with a `#{prefix}` prefix"} and returns it converted.
 
-      An option is a type (`u8` to `s64`, `f32`, `f64`, `big`, or a C name such as `:int` or
-      `"unsigned long"`), which converts as a C cast does, or a base, which shows that base
-      instead. A unit (`kb`, `mb`, `gb`, `tb`) says what `value` is in, and it is converted to
-      bytes: `hex(4, gb)`. With no type an integer is cut to a `u64`, and a float keeps its fraction.
+      An option is a type (`:u8` to `:s64`, `:f32`, `:f64`, `:big`, or a C name such as `:int` or
+      `"unsigned long"`), which converts as a C cast does, or a base (`:bin`), which shows that base
+      instead. A unit (`:kb`, `:mb`, `:gb`, `:tb`) says what `value` is in, and it is converted to
+      bytes: `hex(4, :gb)`. With no type an integer is cut to a `u64`, and a float keeps its fraction.
       `true` and `false` are 1 and 0, and a one-character string is its code point.
       """
       def unquote(name)(value), do: show(unquote(name), value, [])
@@ -83,12 +89,9 @@ unless Code.ensure_loaded?(IExHelpers) do
     end
 
     for unit <- @units do
-      @doc "Its own name, so that `gb(x, #{unit})` can name it as the unit `x` is in."
-      def unquote(unit)(), do: unquote(unit)
-
       @doc """
       Converts a size to `#{unit}`, in steps of 1024. `value` is in bytes unless a unit is among
-      the options: `#{unit}(x, gb)`, `:megabyte`, `"MiB"`.
+      the options: `#{unit}(x, :gb)`, `:megabyte`, `"MiB"`.
 
       A whole result is an integer, cut to a `u64`. When the division leaves a remainder the
       result is a float, shown to 5 places, or to 20 when the first 5 are zeros. A type among
@@ -106,7 +109,7 @@ unless Code.ensure_loaded?(IExHelpers) do
     for from <- @units, to <- @units, from != to do
       name = :"#{from}_to_#{to}"
 
-      @doc "Converts `value` from `#{from}` to `#{to}`: `#{to}(value, #{from})`. An option names a type."
+      @doc "Converts `value` from `#{from}` to `#{to}`: `#{to}(value, :#{from})`. An option names a type."
       def unquote(name)(value), do: size(unquote(name), unquote(to), value, [unquote(from)])
 
       def unquote(name)(value, option),
@@ -115,7 +118,7 @@ unless Code.ensure_loaded?(IExHelpers) do
 
     @doc """
     Converts `value` to `type` as C's `(type)value` does. `type` is any name a helper takes:
-    `u16`, `:u16`, `:int`, `:uint32_t`, `"unsigned long"`, `:double`, `big`.
+    `:u16`, `:int`, `:uint32_t`, `"unsigned long"`, `:double`, `:big`.
     """
     def cast(type, value), do: to(type("cast", type), number("cast", value))
 
