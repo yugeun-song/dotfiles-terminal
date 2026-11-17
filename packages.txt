@@ -1,7 +1,7 @@
 # What these files configure or call, from Arch's official repositories:
 # packages.sh installs the missing ones before install.sh checks its premise.
-# Oh My Zsh, powerlevel10k, its two plugins and pwndbg come from git
-# (bootstrap.sh, ~/pwndbg), not from here.
+# Oh My Zsh, powerlevel10k and its two plugins come from git (bootstrap.sh),
+# not from here.
 
 # The premise.
 zsh
@@ -15,6 +15,7 @@ fzf
 tmux
 wl-clipboard
 gdb
+pwndbg
 nodejs
 npm
 elixir
