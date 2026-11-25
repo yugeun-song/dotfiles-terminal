@@ -1,4 +1,62 @@
+# Editor and shell leftovers
 # Nothing built lives here, but editors and shells leave things behind.
-*.zwc
 *.swp
+*.zwc
+
+# Python caches
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# AI tool artifacts
+.agent/
+.agents/
+.aider*
+.augment/
+.claude/
+.cline/
+.codeium/
+.codex/
+.continue/
+.crush/
+.cursor/
+.devin/
+.factory/
+.gemini/
+.junie/
+.kiro/
+.mcp.json
+.opencode/
+.qwen/
+.roo/
+.roomodes
+.serena/
+.specstory/
+.windsurf/
+_agent/
+_agents/
+opencode.json
+opencode.jsonc
+.clinerules
+.cursorrules
+.github/copilot-instructions.md
+.github/instructions/
+.goosehints
+.hermes.md
+.roorules*
+.rules
+.windsurfrules
+AGENT.md
+AGENTS.local.md
+AGENTS.override.md
+CLAUDE.local.md
+CRUSH.local.md
+CRUSH.md
+HERMES.md
+QWEN.md
+WARP.md
