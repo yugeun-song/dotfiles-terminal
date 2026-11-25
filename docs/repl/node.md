@@ -2,7 +2,7 @@
 
 Every row below was run in node; `tests/repl.sh` runs each one again and compares. The first column is typed
 at the prompt and the second is what node printed: the result line is the one node prints after a statement.
-[README.md](README.md) has the rules all four REPLs share and what differs between them.
+[overview.md](overview.md) has the rules all four REPLs share and what differs between them.
 
 ## The result line
 

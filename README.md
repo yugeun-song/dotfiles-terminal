@@ -188,7 +188,7 @@ same helpers under C's own syntax, where `-7 / 2` is -3, `(unsigned char)300`
 is a cast, `1u` and `1.5f` are typed constants, and `f(a, b) = a * b` defines
 a function. `cnum` starts a prompt and `cnum 'hex(4, gb)'` answers at once.
 
-[docs/repl](docs/repl/README.md) has the whole toolbox, one page per REPL and
+[docs/repl](docs/repl/overview.md) has the whole toolbox, one page per REPL and
 one for cnum, with each call and what it prints; look there for what you
 need. `tests/repl.sh` runs every row of those pages.
 

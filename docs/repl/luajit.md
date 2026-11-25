@@ -2,7 +2,7 @@
 
 Every row below was run in LuaJIT; `tests/repl.sh` runs each one again and compares. The first column is typed
 at the prompt and the second is what LuaJIT printed: LuaJIT prints a value only for a line that starts with
-`=`, so every expression below does. [README.md](README.md) has the rules all four REPLs share and what
+`=`, so every expression below does. [overview.md](overview.md) has the rules all four REPLs share and what
 differs between them.
 
 ## The result line
