@@ -151,7 +151,9 @@ in `~/.gitconfig`. GitHub credentials come only from `gh auth git-credential`.
 nvim and VS Code get the same rule:
 
 - **stock**: pwndbg, or plain gdb with one line saying why when its
-  `gdbinit.py` or virtualenv is missing (pwndbg's own loader would end gdb).
+  `gdbinit.py` or virtualenv is missing (pwndbg's own loader would end gdb),
+  or when an IDE such as Visual Studio or VS Code runs gdb through the MI
+  interpreter, where pwndbg ends gdb while it loads.
 - **linux_kernel**: stock plus `debug-max.gdb` (limits lifted, history kept,
   `maxfork`, `logon`, `syscatch`), when `GDBTOOLS_AUTO` is set or a Linux
   Kernel image or module is loaded (`.gnu.linkonce.this_module`, or

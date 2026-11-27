@@ -1,5 +1,6 @@
 # Sourced from the block install.sh keeps at the top of the gdb init file. Loads
-# pwndbg, then applies the stock preset, or linux_kernel (stock plus
+# pwndbg unless an IDE runs gdb through the MI interpreter, then applies the
+# stock preset, or linux_kernel (stock plus
 # debug-max.gdb) when GDBTOOLS_AUTO is set or a Linux Kernel image or module is
 # loaded; GDB_PRESET=stock|linux_kernel overrides. Everything is local to one
 # function, so nothing of this file stays in gdb's __main__.
@@ -66,6 +67,25 @@ def _gdb_presets(here):
             source(loader)
         except Exception as error:
             say("pwndbg failed to load: %s" % error)
+
+    # Visual Studio and VS Code drive gdb through its machine interface (MI).
+    # There pwndbg fails while it registers its commands, and its loader then
+    # ends gdb, so an MI session runs plain gdb.
+    def machine_interface():
+        try:
+            with open("/proc/self/cmdline", "rb") as handle:
+                arguments = handle.read().split(b"\0")
+        except OSError:
+            return False
+        for index, argument in enumerate(arguments):
+            name, _, value = argument.partition(b"=")
+            if name not in (b"-i", b"-interpreter", b"--interpreter"):
+                continue
+            if not value and index + 1 < len(arguments):
+                value = arguments[index + 1]
+            if value.startswith(b"mi"):
+                return True
+        return False
 
     def section_names(path):
         with open(path, "rb") as handle:
@@ -139,7 +159,9 @@ def _gdb_presets(here):
             trusted = None
 
     loader = sys.modules["__main__"].__dict__.get("gdb_presets_pwndbg_source")
-    if loader:
+    if loader and machine_interface():
+        say("an IDE runs gdb through the MI interpreter; running plain gdb")
+    elif loader:
         load_pwndbg(loader)
 
     try:
